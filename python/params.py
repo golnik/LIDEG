@@ -42,12 +42,10 @@ class InputParams:
         self.Nz = int(config['rgrid']['Nz'])
 
         #read kgrid
-        self.kx_min = float(config['kgrid']['kx_min'])*au2nm
-        self.kx_max = float(config['kgrid']['kx_max'])*au2nm
+        self.dkx = float(config['kgrid']['dkx'])*au2nm
         self.Nkx = int(config['kgrid']['Nkx'])
 
-        self.ky_min = float(config['kgrid']['ky_min'])*au2nm
-        self.ky_max = float(config['kgrid']['ky_max'])*au2nm
+        self.dky = float(config['kgrid']['dky'])*au2nm
         self.Nky = int(config['kgrid']['Nky'])
 
         self.Nt = int(config['propagator']['Nt'])
@@ -58,8 +56,8 @@ class InputParams:
 
         #create grids
         self.tgrid   = np.linspace(self.tmin,self.tmax,self.Nt)
-        self.kx_grid = np.linspace(self.kx_min,self.kx_max,self.Nkx)
-        self.ky_grid = np.linspace(self.ky_min,self.ky_max,self.Nkx)
+        self.kx_grid = np.linspace(-self.dkx,self.dkx,self.Nkx)
+        self.ky_grid = np.linspace(-self.dky,self.dky,self.Nkx)
 
         self.xgrid = np.linspace(self.xmin,self.xmax,self.Nx)
         self.ygrid = np.linspace(self.ymin,self.ymax,self.Ny)

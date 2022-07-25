@@ -25,6 +25,23 @@ public:
 
     ~GrapheneModel(){}
 
+    void get_Dirac_points(std::vector<double>& Dirac_Kx, 
+                          std::vector<double>& Dirac_Ky,
+                          std::vector<int>&    Dirac_type) const{
+        double Kx=2.*M_PI/(sqrt(3.)*_a);
+        double Ky=2.*M_PI/(3.*_a);
+
+        //add K point
+        Dirac_Kx.push_back(Kx);
+        Dirac_Ky.push_back(Ky);
+        Dirac_type.push_back(0);
+
+        //add K' point
+        Dirac_Kx.push_back(Kx);
+        Dirac_Ky.push_back(-Ky);
+        Dirac_type.push_back(1);
+    }
+
     complex_t f(const double& kx, const double& ky) const{
         return exp(I*kx*_a/sqrt(3.))+2.*exp(-I*0.5*kx*_a/sqrt(3.))*cos(0.5*ky*_a);
     }
@@ -55,6 +72,32 @@ public:
         return 0.5*d_prefac(kx,ky)
                *sin(0.5*sqrt(3.)*_a*kx)*sin(0.5*_a*ky);
     }
+
+    double px_vv(const double& kx, const double& ky) const{
+        return (_a*_gamma/abs(f(kx,ky)))
+               *sqrt(3.)*sin(0.5*sqrt(3.)*_a*kx)*cos(0.5*_a*ky);
+    }
+
+    double py_vv(const double& kx, const double& ky) const{
+        return (_a*_gamma/abs(f(kx,ky)))
+                *(cos(0.5*sqrt(3.)*_a*kx)*sin(0.5*_a*ky)+sin(_a*ky));
+    }
+
+    double px_cc(const double& kx, const double& ky) const{
+        return -px_vv(kx,ky);
+    }
+
+    double py_cc(const double& kx, const double& ky) const{
+        return -py_vv(kx,ky);
+    }
+
+    complex_t px_cv(const double& kx, const double& ky) const{
+        return I*(ep(kx,ky)-em(kx,ky))*dx(kx,ky);
+    }
+
+    complex_t py_cv(const double& kx, const double& ky) const{
+        return I*(ep(kx,ky)-em(kx,ky))*dy(kx,ky);
+    }    
 
     void print(){
         std::cout<<"a: "<<_a<<std::endl;

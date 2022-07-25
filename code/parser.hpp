@@ -16,12 +16,10 @@ struct Parameters{
     double err_abs;
     double err_rel;
 
-    double kx_min;
-    double kx_max;
+    double dkx;
     size_t Nkx;
 
-    double ky_min;
-    double ky_max;
+    double dky;
     size_t Nky;
 
     size_t Nclx;
@@ -56,10 +54,10 @@ struct Parameters{
         out<<tmin<<" "<<tmax<<" "<<Nt<<std::endl;
         out<<err_abs<<" "<<err_rel<<std::endl;
 
-        out<<"kx grid:"<<std::endl;
-        out<<kx_min<<" "<<kx_max<<" "<<Nkx<<std::endl;
-        out<<"ky grid:"<<std::endl;
-        out<<ky_min<<" "<<ky_max<<" "<<Nky<<std::endl;
+        //out<<"kx grid:"<<std::endl;
+        //out<<kx_min<<" "<<kx_max<<" "<<Nkx<<std::endl;
+        //out<<"ky grid:"<<std::endl;
+        //out<<ky_min<<" "<<ky_max<<" "<<Nky<<std::endl;
 
         out<<field_fname<<std::endl;
 
@@ -103,20 +101,14 @@ public:
         _params.err_rel=std::stod(err_rel_str);
 
         //parse kgrid section
-        std::string kx_min_str=ini.get("kgrid").get("kx_min");
-        _params.kx_min=std::stod(kx_min_str)*au2nm;
-        
-        std::string kx_max_str=ini.get("kgrid").get("kx_max");
-        _params.kx_max=std::stod(kx_max_str)*au2nm;
+        std::string dkx_str=ini.get("kgrid").get("dkx");
+        _params.dkx=std::stod(dkx_str)*au2nm;
 
         std::string Nkx_str=ini.get("kgrid").get("Nkx");
         _params.Nkx=std::stoi(Nkx_str);  
 
-        std::string ky_min_str=ini.get("kgrid").get("ky_min");
-        _params.ky_min=std::stod(ky_min_str)*au2nm;
-
-        std::string ky_max_str=ini.get("kgrid").get("ky_max");
-        _params.ky_max=std::stod(ky_max_str)*au2nm;
+        std::string dky_str=ini.get("kgrid").get("dky");
+        _params.dky=std::stod(dky_str)*au2nm;
 
         std::string Nky_str=ini.get("kgrid").get("Nky");
         _params.Nky=std::stoi(Nky_str);

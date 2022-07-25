@@ -24,13 +24,15 @@ void read_column_from_file(const std::string& fname, const size_t& icol,
 
     std::string line;
     while(std::getline(inpstream,line)){
-        std::vector<std::string> split_str;
-        std::istringstream iss(line);
-        for(std::string s; iss>>s;) 
-            split_str.push_back(s);
+        if(line.front()!='#'){
+            std::vector<std::string> split_str;
+            std::istringstream iss(line);
+            for(std::string s; iss>>s;) 
+                split_str.push_back(s);
 
-        double value=std::stod(split_str[icol]);
-        data.push_back(value);
+            double value=std::stod(split_str[icol]);
+            data.push_back(value);
+        }
     }
 
     return;

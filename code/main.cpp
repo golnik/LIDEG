@@ -43,11 +43,6 @@ int main(int argc, char** argv){
 
         params.print(std::cout);
 
-        //prepare grids
-        auto tgrid  =create_grid(params.tmin,params.tmax,params.Nt);
-        auto kx_grid=create_grid(params.kx_min,params.kx_max,params.Nkx);
-        auto ky_grid=create_grid(params.ky_min,params.ky_max,params.Nky);
-
         //read fields from file
         std::vector<double> tgrid_fit;
         std::vector<double> Adata_x_fit;
@@ -73,6 +68,20 @@ int main(int argc, char** argv){
         GrapheneModel gm(params.a,params.e2p,params.gamma,params.s,
                          Efield_x,Efield_y);
 
+        //create K and Kp points
+        std::vector<double> Dirac_Kx;
+        std::vector<double> Dirac_Ky;
+        std::vector<int> Dirac_type;
+
+        gm.get_Dirac_points(Dirac_Kx,Dirac_Ky,Dirac_type);
+
+        //we simulate dynamics at K point only
+        double Kx=Dirac_Kx[0];
+        double Ky=Dirac_Ky[0];
+
+        auto kx_grid=create_grid(Kx-params.dkx,Kx+params.dkx,params.Nkx);
+        auto ky_grid=create_grid(Ky-params.dky,Ky+params.dky,params.Nky);
+
         //prepare initial densities
         matrix<state_type> rho_t_kxky(params.Nkx,params.Nky);
         for(size_t ikx=0; ikx<params.Nkx; ikx++){
@@ -86,13 +95,10 @@ int main(int argc, char** argv){
                 rho_t_kxky(ikx,iky)(0,0)=1.;
             }
         }
-
-        //prepare output streams
-        std::ofstream tfile_out;
-        tfile_out.open(params.tfile_fname);
-
+        
+        auto tgrid=create_grid(params.tmin,params.tmax,params.Nt);
         double dt=(params.tmax-params.tmin)/(params.Nt-1);
-        for(size_t it=0; it<params.Nt; it++){
+        for(size_t it=0; it<params.Nt; it++){//time loop
             //output rho for every timestep
             std::string rho_t_fname=params.rhofile_fname;
             replace(rho_t_fname,"%it",boost::str(boost::format("%06d") % (it+1)));
@@ -128,46 +134,28 @@ int main(int argc, char** argv){
                 }
             }
 
-            double pop0=0.;
-            double pop1=0.;
-            complex_t coh=0.;
-
+            //write kgrid files
+            rho_t_out<<std::fixed;
+            rho_t_out<<std::setprecision(8);
+            rho_t_out<<"#"<<std::setw(14)<<"rho_vv";
+            rho_t_out<<     std::setw(15)<<"rho_cc";
+            rho_t_out<<     std::setw(15)<<"Re{rho_cv}";
+            rho_t_out<<     std::setw(15)<<"Im{rho_cv}";
+            rho_t_out<<std::endl;
             for(size_t ikx=0; ikx<params.Nkx; ikx++){
                 for(size_t iky=0; iky<params.Nky; iky++){
-                    pop0+=abs(rho_t_kxky(ikx,iky)(0,0));
-                    pop1+=abs(rho_t_kxky(ikx,iky)(1,1));
-                    coh+=rho_t_kxky(ikx,iky)(0,1);
-
-                    //write kgrid files
                     //rho_t_out<<kx_grid[ikx]<<" "<<ky_grid[iky]<<" ";
-                    rho_t_out<<std::abs(rho_t_kxky(ikx,iky)(0,0))<<" ";
-                    rho_t_out<<std::abs(rho_t_kxky(ikx,iky)(1,1))<<" ";
-                    rho_t_out<<std::real(rho_t_kxky(ikx,iky)(0,1))<<" ";
-                    rho_t_out<<std::imag(rho_t_kxky(ikx,iky)(0,1))<<" ";
+                    rho_t_out<<std::setw(15)<<std::abs(rho_t_kxky(ikx,iky)(0,0));
+                    rho_t_out<<std::setw(15)<<std::abs(rho_t_kxky(ikx,iky)(1,1));
+                    rho_t_out<<std::setw(15)<<std::real(rho_t_kxky(ikx,iky)(0,1));
+                    rho_t_out<<std::setw(15)<<std::imag(rho_t_kxky(ikx,iky)(0,1));
                     rho_t_out<<std::endl;
                 }
             }
 
-            tfile_out<<std::fixed;
-            tfile_out<<std::setprecision(5);
-            tfile_out<<time*au2fs<<" ";
-            tfile_out<<(*Afield_x)(time)<<" ";
-            tfile_out<<(*Afield_y)(time)<<" ";
-            tfile_out<<(*Efield_x)(time)<<" ";
-            tfile_out<<(*Efield_y)(time)<<" ";
-            tfile_out<<pop0<<" ";
-            tfile_out<<pop1<<" ";
-            tfile_out<<std::real(coh)<<" ";
-            tfile_out<<std::imag(coh)<<" ";
-
-            tfile_out<<std::endl;
-
             //close streams
             rho_t_out.close();
-        }
-
-        //close streams
-        tfile_out.close();
+        }//time loop
     }catch(std::string er){
         std::cout<<' '<<er<<std::endl;
         std::cout<<" Task not accomplished.\n";
