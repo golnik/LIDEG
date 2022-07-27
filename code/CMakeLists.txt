@@ -5,10 +5,10 @@ set(PROJECT graphene)
 set(CMAKE_C_COMPILER "gcc")
 set(CMAKE_CXX_COMPILER "g++")
 
-project(${PROJECT} CXX)
+project(${PROJECT} C CXX)
 
 #c++14 is required for some templates used in the code
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -62,6 +62,13 @@ add_executable(
     analysis.exe
     "${CMAKE_CURRENT_SOURCE_DIR}/analysis.cpp"  
 )
+
+add_executable(
+    debug.exe
+    "${CMAKE_CURRENT_SOURCE_DIR}/integrator/gauss_legendre.c"    
+    "${CMAKE_CURRENT_SOURCE_DIR}/debug.cpp"
+)
+target_link_libraries(debug.exe PRIVATE "stdc++fs")
 
 find_package(OpenMP)
 if(OpenMP_CXX_FOUND)

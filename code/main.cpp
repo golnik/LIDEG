@@ -11,6 +11,7 @@
 #include "external_field.hpp"
 #include "model1/graphene.hpp"
 #include "model1/WFs.hpp"
+#include "model2/graphene2.hpp"
 
 #include "uBLASBoostOdeint.hpp"
 
@@ -68,6 +69,10 @@ int main(int argc, char** argv){
         GrapheneModel gm(params.a,params.e2p,params.gamma,params.s,
                          Efield_x,Efield_y);
 
+        GrapheneModel2 gm2(params.a,params.e2p,params.gamma,params.s,
+                           Efield_x,Efield_y,
+                           Afield_x,Afield_y);
+
         //create K and Kp points
         std::vector<double> Dirac_Kx;
         std::vector<double> Dirac_Ky;
@@ -96,6 +101,8 @@ int main(int argc, char** argv){
             }
         }
         
+        std::ofstream test_out("test.out");
+
         auto tgrid=create_grid(params.tmin,params.tmax,params.Nt);
         double dt=(params.tmax-params.tmin)/(params.Nt-1);
         for(size_t it=0; it<params.Nt; it++){//time loop
@@ -114,11 +121,12 @@ int main(int argc, char** argv){
                     double kx0=kx_grid[ikx];
                     double ky0=ky_grid[iky];
 
-                    auto system=[gm,kx0,ky0,Afield_x,Afield_y](const state_type& rho, state_type& drhodt, const double t){
+                    auto system=[gm,gm2,kx0,ky0,Afield_x,Afield_y](const state_type& rho, state_type& drhodt, const double t){
                         double kxt=kx0+(*Afield_x)(t);
                         double kyt=ky0+(*Afield_y)(t);
 
                         gm.propagate(rho,drhodt,t,kxt,kyt);
+                        //gm2.propagate(rho,drhodt,t,kx0,ky0);
                         return;
                     };
 
@@ -135,27 +143,46 @@ int main(int argc, char** argv){
             }
 
             //write kgrid files
-            rho_t_out<<std::fixed;
+            rho_t_out<<std::scientific;
+            //rho_t_out<<std::fixed;
             rho_t_out<<std::setprecision(8);
-            rho_t_out<<"#"<<std::setw(14)<<"rho_vv";
-            rho_t_out<<     std::setw(15)<<"rho_cc";
-            rho_t_out<<     std::setw(15)<<"Re{rho_cv}";
-            rho_t_out<<     std::setw(15)<<"Im{rho_cv}";
+            rho_t_out<<"#"<<std::setw(19)<<"rho_vv";
+            rho_t_out<<     std::setw(20)<<"rho_cc";
+            rho_t_out<<     std::setw(20)<<"Re{rho_cv}";
+            rho_t_out<<     std::setw(20)<<"Im{rho_cv}";
             rho_t_out<<std::endl;
             for(size_t ikx=0; ikx<params.Nkx; ikx++){
                 for(size_t iky=0; iky<params.Nky; iky++){
+                    double rho_vv=std::abs(rho_t_kxky(ikx,iky)(0,0));
+                    double rho_cc=std::abs(rho_t_kxky(ikx,iky)(1,1));
+                    complex_t rho_cv=rho_t_kxky(ikx,iky)(0,1);
+
+                    /*double rho_vv=std::norm(rho_t_kxky(ikx,iky)(0,0));
+                    double rho_cc=std::norm(rho_t_kxky(ikx,iky)(1,1));
+                    complex_t rho_cv=std::conj(rho_t_kxky(ikx,iky)(0,0))
+                                    *rho_t_kxky(ikx,iky)(1,1);*/
+
                     //rho_t_out<<kx_grid[ikx]<<" "<<ky_grid[iky]<<" ";
-                    rho_t_out<<std::setw(15)<<std::abs(rho_t_kxky(ikx,iky)(0,0));
-                    rho_t_out<<std::setw(15)<<std::abs(rho_t_kxky(ikx,iky)(1,1));
-                    rho_t_out<<std::setw(15)<<std::real(rho_t_kxky(ikx,iky)(0,1));
-                    rho_t_out<<std::setw(15)<<std::imag(rho_t_kxky(ikx,iky)(0,1));
+                    rho_t_out<<std::setw(20)<<rho_vv;
+                    rho_t_out<<std::setw(20)<<rho_cc;
+                    rho_t_out<<std::setw(20)<<std::real(rho_cv);
+                    rho_t_out<<std::setw(20)<<std::imag(rho_cv);
+                    rho_t_out<<std::setw(20)<<std::abs(rho_cv);
+                    rho_t_out<<std::setw(20)<<std::arg(rho_cv);
+
                     rho_t_out<<std::endl;
                 }
             }
 
+            test_out<<std::scientific;
+            test_out<<std::setprecision(8);
+            test_out<<time<<" "<<std::abs(rho_t_kxky(0,0)(0,0))<<std::endl;
+
             //close streams
             rho_t_out.close();
         }//time loop
+
+        test_out.close();
     }catch(std::string er){
         std::cout<<' '<<er<<std::endl;
         std::cout<<" Task not accomplished.\n";

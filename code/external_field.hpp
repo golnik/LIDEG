@@ -18,12 +18,21 @@ public:
         const double& t0, const double& dt){
         _spl=new spline_t(data.begin(),data.end(),t0,dt);
     }
+    ExternalFieldFromData(const ExternalFieldFromData& old_spline){
+        _spl=new spline_t;
+        *_spl=*old_spline._spl;
+    }
+
     ~ExternalFieldFromData(){
         delete _spl;
     }
 
     double operator()(const double& t) const override{
         return (*_spl)(t);
+    }
+
+    double derivative(const double& t) const{
+        return _spl->prime(t);
     }
 private:
     spline_t* _spl;

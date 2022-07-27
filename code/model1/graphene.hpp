@@ -40,6 +40,16 @@ public:
         Dirac_Kx.push_back(Kx);
         Dirac_Ky.push_back(-Ky);
         Dirac_type.push_back(1);
+
+        //add K point
+        /*Dirac_Kx.push_back(4.*M_PI/(3.*_a));
+        Dirac_Ky.push_back(0.);
+        Dirac_type.push_back(0);
+
+        //add' K point
+        Dirac_Kx.push_back(-4.*M_PI/(3.*_a));
+        Dirac_Ky.push_back(0.);
+        Dirac_type.push_back(0);*/
     }
 
     complex_t f(const double& kx, const double& ky) const{
