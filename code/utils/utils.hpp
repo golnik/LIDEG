@@ -13,6 +13,7 @@
 #define au2A  0.52917829614246
 #define au2eV 27.211396641308
 #define au2fs 0.02418884254
+#define au2Vnm 5.14220826e+2
 
 typedef std::complex<double> complex_t;
 const complex_t I=complex_t(0.,1.);

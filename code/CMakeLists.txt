@@ -68,6 +68,9 @@ add_executable(
     "${CMAKE_CURRENT_SOURCE_DIR}/utils/gauss_legendre.c"    
     "${CMAKE_CURRENT_SOURCE_DIR}/debug.cpp"
 )
+
+target_link_libraries(main.exe PRIVATE "stdc++fs")
+target_link_libraries(analysis.exe PRIVATE "stdc++fs")
 target_link_libraries(debug.exe PRIVATE "stdc++fs")
 
 find_package(OpenMP)

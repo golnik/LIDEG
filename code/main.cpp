@@ -23,6 +23,11 @@ using namespace boost::numeric::odeint;
 
 #include <boost/format.hpp>
 
+//#include <boost/filesystem.hpp>
+//namespace fs=boost::filesystem;
+#include <filesystem>
+namespace fs=std::filesystem;
+
 typedef matrix<complex_t> state_type;
 
 typedef runge_kutta4<state_type> rk4;
@@ -44,6 +49,10 @@ int main(int argc, char** argv){
 
         params.print(std::cout);
 
+        //create output directory if does not exist
+        fs::path outpath(params.outdir);
+        fs::create_directory(outpath);
+
         //read fields from file
         std::vector<double> tgrid_fit;
         std::vector<double> Adata_x_fit;
@@ -60,10 +69,10 @@ int main(int argc, char** argv){
         double t0_fit=tgrid_fit[0]/au2fs;
         double dt_fit=(tgrid_fit[1]-tgrid_fit[0])/au2fs;
 
-        ExternalField* Afield_x=new ExternalFieldFromData(Adata_x_fit,t0_fit,dt_fit);
-        ExternalField* Afield_y=new ExternalFieldFromData(Adata_y_fit,t0_fit,dt_fit);
-        ExternalField* Efield_x=new ExternalFieldFromData(Edata_x_fit,t0_fit,dt_fit);
-        ExternalField* Efield_y=new ExternalFieldFromData(Edata_y_fit,t0_fit,dt_fit);
+        ExternalField* Afield_x=new ExternalFieldFromData(Adata_x_fit,t0_fit,dt_fit,params.E0);
+        ExternalField* Afield_y=new ExternalFieldFromData(Adata_y_fit,t0_fit,dt_fit,params.E0);
+        ExternalField* Efield_x=new ExternalFieldFromData(Edata_x_fit,t0_fit,dt_fit,params.E0);
+        ExternalField* Efield_y=new ExternalFieldFromData(Edata_y_fit,t0_fit,dt_fit,params.E0);
 
         //create graphene model
         GrapheneModel gm(params.a,params.e2p,params.gamma,params.s,
@@ -89,7 +98,7 @@ int main(int argc, char** argv){
         auto ky_grid=create_grid(Ky-params.dky,Ky+params.dky,params.Nky,params.kgrid_type);
 
         //write grids to file
-        std::ofstream grid_out("output/grids.dat");
+        std::ofstream grid_out(params.gfile_fname);
         //write kx grid
         grid_out<<kx_grid.size()<<std::endl;
         for(size_t ikx=0; ikx<params.Nkx; ikx++)
@@ -114,16 +123,14 @@ int main(int argc, char** argv){
                 rho_t_kxky(ikx,iky)(0,0)=1.;
             }
         }
-        
-        std::ofstream test_out("test.out");
 
         auto tgrid=create_grid(params.tmin,params.tmax,params.Nt);
         double dt=(params.tmax-params.tmin)/(params.Nt-1);
         for(size_t it=0; it<params.Nt; it++){//time loop
             //output rho for every timestep
-            std::string rho_t_fname=params.rhofile_fname;
-            replace(rho_t_fname,"%it",boost::str(boost::format("%06d") % (it+1)));
-            std::ofstream rho_t_out(rho_t_fname);
+            std::string dens_t_fname=params.densfile_fname;
+            replace(dens_t_fname,"%it",boost::str(boost::format("%06d") % (it+1)));
+            std::ofstream dens_t_out(dens_t_fname);
 
             std::cout<<"Time step "<<it+1<<" out of "<<params.Nt<<std::endl;
 
@@ -157,14 +164,14 @@ int main(int argc, char** argv){
             }
 
             //write kgrid files
-            rho_t_out<<std::scientific;
+            dens_t_out<<std::scientific;
             //rho_t_out<<std::fixed;
-            rho_t_out<<std::setprecision(8);
-            rho_t_out<<"#"<<std::setw(19)<<"rho_vv";
-            rho_t_out<<     std::setw(20)<<"rho_cc";
-            rho_t_out<<     std::setw(20)<<"Re{rho_cv}";
-            rho_t_out<<     std::setw(20)<<"Im{rho_cv}";
-            rho_t_out<<std::endl;
+            dens_t_out<<std::setprecision(8);
+            dens_t_out<<"#"<<std::setw(19)<<"rho_vv";
+            dens_t_out<<     std::setw(20)<<"rho_cc";
+            dens_t_out<<     std::setw(20)<<"Re{rho_cv}";
+            dens_t_out<<     std::setw(20)<<"Im{rho_cv}";
+            dens_t_out<<std::endl;
             for(size_t ikx=0; ikx<params.Nkx; ikx++){
                 for(size_t iky=0; iky<params.Nky; iky++){
                     double rho_vv=std::abs(rho_t_kxky(ikx,iky)(0,0));
@@ -177,26 +184,20 @@ int main(int argc, char** argv){
                                     *rho_t_kxky(ikx,iky)(1,1);*/
 
                     //rho_t_out<<kx_grid[ikx]<<" "<<ky_grid[iky]<<" ";
-                    rho_t_out<<std::setw(20)<<rho_vv;
-                    rho_t_out<<std::setw(20)<<rho_cc;
-                    rho_t_out<<std::setw(20)<<std::real(rho_cv);
-                    rho_t_out<<std::setw(20)<<std::imag(rho_cv);
-                    rho_t_out<<std::setw(20)<<std::abs(rho_cv);
-                    rho_t_out<<std::setw(20)<<std::arg(rho_cv);
+                    dens_t_out<<std::setw(20)<<rho_vv;
+                    dens_t_out<<std::setw(20)<<rho_cc;
+                    dens_t_out<<std::setw(20)<<std::real(rho_cv);
+                    dens_t_out<<std::setw(20)<<std::imag(rho_cv);
+                    dens_t_out<<std::setw(20)<<std::abs(rho_cv);
+                    dens_t_out<<std::setw(20)<<std::arg(rho_cv);
 
-                    rho_t_out<<std::endl;
+                    dens_t_out<<std::endl;
                 }
             }
 
-            test_out<<std::scientific;
-            test_out<<std::setprecision(8);
-            test_out<<time<<" "<<std::abs(rho_t_kxky(0,0)(0,0))<<std::endl;
-
             //close streams
-            rho_t_out.close();
+            dens_t_out.close();
         }//time loop
-
-        test_out.close();
     }catch(std::string er){
         std::cout<<' '<<er<<std::endl;
         std::cout<<" Task not accomplished.\n";

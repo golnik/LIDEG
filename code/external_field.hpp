@@ -15,10 +15,13 @@ public ExternalField{
     typedef cardinal_cubic_b_spline<double> spline_t;
 public:
     ExternalFieldFromData(const std::vector<double>& data,
-        const double& t0, const double& dt){
+        const double& t0, const double& dt,
+        const double& E0):
+        _E0{E0}{
         _spl=new spline_t(data.begin(),data.end(),t0,dt);
     }
-    ExternalFieldFromData(const ExternalFieldFromData& old_spline){
+    ExternalFieldFromData(const ExternalFieldFromData& old_spline):
+    _E0{old_spline._E0}{
         _spl=new spline_t;
         *_spl=*old_spline._spl;
     }
@@ -28,14 +31,15 @@ public:
     }
 
     double operator()(const double& t) const override{
-        return (*_spl)(t);
+        return _E0*(*_spl)(t);
     }
 
     double derivative(const double& t) const{
-        return _spl->prime(t);
+        return _E0*_spl->prime(t);
     }
 private:
     spline_t* _spl;
+    double _E0;
 };
 
 #endif

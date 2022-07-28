@@ -1,5 +1,7 @@
 import configparser
 import numpy as np
+import sys
+import os
 
 au2nm  = 0.052917829614246
 au2A   = au2nm*10
@@ -50,15 +52,22 @@ class InputParams:
 
         self.Nt = int(config['propagator']['Nt'])
 
-        self.tfile_fname    = config['output']['tfile']
-        self.rhofile_fname  = config['output']['rhofile']
-        self.densfile_fname = config['output']['densfile']
+        self.outdir         = config['output']['outdir']
+        self.gfile_fname    = os.path.join(self.outdir,config['output']['gfile'])
+        self.tfile_fname    = os.path.join(self.outdir,config['output']['tfile'])
+        self.rhofile_fname  = os.path.join(self.outdir,config['output']['rhofile'])
+        self.densfile_fname = os.path.join(self.outdir,config['output']['densfile'])
 
         #create grids
         self.tgrid   = np.linspace(self.tmin,self.tmax,self.Nt)
-        self.kx_grid = np.linspace(-self.dkx,self.dkx,self.Nkx)
-        self.ky_grid = np.linspace(-self.dky,self.dky,self.Nkx)
 
         self.xgrid = np.linspace(self.xmin,self.xmax,self.Nx)
         self.ygrid = np.linspace(self.ymin,self.ymax,self.Ny)
         self.zgrid = np.linspace(self.zmin,self.zmax,self.Nz)
+
+        #we read kgrid from file
+        with open(self.gfile_fname,'r') as file:
+            kgrid_data = file.readlines()
+
+        self.kx_grid = np.float_(kgrid_data[1].split())
+        self.ky_grid = np.float_(kgrid_data[3].split())

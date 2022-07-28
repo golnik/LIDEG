@@ -28,7 +28,10 @@ def plot_reciprocal(params,it,Efield_data,rho_data,fig_fname):
 
     axes[0].axvline(params.tgrid[it]*au2fs,c='r',lw=3)
 
-    axes[1].contourf(params.kx_grid/au2nm,params.ky_grid/au2nm,rho_data,levels=np.linspace(0.,1.,30),cmap=cm.jet)
+    levels = np.linspace(0.,1.,100)
+    #levels = np.linspace(-0.5,0.5,100)
+
+    axes[1].contourf(params.kx_grid/au2nm,params.ky_grid/au2nm,rho_data,levels=levels,cmap=cm.jet)
     axes[1].set_box_aspect(1)
     axes[1].set_xlabel(r"$k_x [\mathrm{nm}^{-1}]$",labelpad=10)
     axes[1].set_ylabel(r"$k_y [\mathrm{nm}^{-1}]$",labelpad=5)

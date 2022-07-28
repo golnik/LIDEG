@@ -70,10 +70,10 @@ int main(int argc, char** argv){
         double t0_fit=tgrid_fit[0]/au2fs;
         double dt_fit=(tgrid_fit[1]-tgrid_fit[0])/au2fs;
 
-        ExternalField* Afield_x=new ExternalFieldFromData(Adata_x_fit,t0_fit,dt_fit);
-        ExternalField* Afield_y=new ExternalFieldFromData(Adata_y_fit,t0_fit,dt_fit);
-        ExternalField* Efield_x=new ExternalFieldFromData(Edata_x_fit,t0_fit,dt_fit);
-        ExternalField* Efield_y=new ExternalFieldFromData(Edata_y_fit,t0_fit,dt_fit);
+        ExternalField* Afield_x=new ExternalFieldFromData(Adata_x_fit,t0_fit,dt_fit,params.E0);
+        ExternalField* Afield_y=new ExternalFieldFromData(Adata_y_fit,t0_fit,dt_fit,params.E0);
+        ExternalField* Efield_x=new ExternalFieldFromData(Edata_x_fit,t0_fit,dt_fit,params.E0);
+        ExternalField* Efield_y=new ExternalFieldFromData(Edata_y_fit,t0_fit,dt_fit,params.E0);
 
         //create graphene model
         GrapheneModel gm(params.a,params.e2p,params.gamma,params.s,
@@ -121,20 +121,15 @@ int main(int argc, char** argv){
 
         for(size_t it=0; it<params.Nt; it++){
             //read density from file
-            std::string rho_t_fname=params.rhofile_fname;
-            replace(rho_t_fname,"%it",boost::str(boost::format("%06d") % (it+1)));
-
-            matrix_t rho_vv=read_2D_from_file<matrix_t>(rho_t_fname,0,params.Nkx,params.Nky);
-            matrix_t rho_cc=read_2D_from_file<matrix_t>(rho_t_fname,1,params.Nkx,params.Nky);
-            matrix_t rho_cv_re=read_2D_from_file<matrix_t>(rho_t_fname,2,params.Nkx,params.Nky);
-            matrix_t rho_cv_im=read_2D_from_file<matrix_t>(rho_t_fname,3,params.Nkx,params.Nky);
-
-            //prepare output streams
             std::string dens_t_fname=params.densfile_fname;
             replace(dens_t_fname,"%it",boost::str(boost::format("%06d") % (it+1)));
-            std::ofstream dens_t_out(dens_t_fname);
 
             std::cout<<dens_t_fname<<std::endl;
+
+            matrix_t rho_vv=read_2D_from_file<matrix_t>(dens_t_fname,0,params.Nkx,params.Nky);
+            matrix_t rho_cc=read_2D_from_file<matrix_t>(dens_t_fname,1,params.Nkx,params.Nky);
+            matrix_t rho_cv_re=read_2D_from_file<matrix_t>(dens_t_fname,2,params.Nkx,params.Nky);
+            matrix_t rho_cv_im=read_2D_from_file<matrix_t>(dens_t_fname,3,params.Nkx,params.Nky);
 
             matrix<double> res(params.Nx,params.Ny);
             for(size_t ix=0; ix<params.Nx; ix++){
@@ -412,18 +407,23 @@ int main(int argc, char** argv){
             tfile_out<<std::setw(20)<<Jer[1];
             tfile_out<<std::endl;
 
-            /*for(size_t ix=0; ix<params.Nx; ix++){
+            //prepare output streams
+            /*std::string rho_t_fname=params.rhofile_fname;
+            replace(rho_t_fname,"%it",boost::str(boost::format("%06d") % (it+1)));
+            std::ofstream rho_t_out(rho_t_fname);
+
+            for(size_t ix=0; ix<params.Nx; ix++){
                 double x=xgrid[ix];
                 for(size_t iy=0; iy<params.Ny; iy++){
                     double y=ygrid[iy];
 
 
 
-                    dens_t_out<<res(ix,iy)<<std::endl;
+                    rho_t_out<<res(ix,iy)<<std::endl;
                 }
             }
 
-            dens_t_out.close();*/
+            rho_t_out.close();*/
         }
         tfile_out.close();
     }catch(std::string er){

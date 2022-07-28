@@ -7,6 +7,9 @@
 #include <string>
 #include <fstream>
 
+#include <filesystem>
+namespace fs=std::filesystem;
+
 struct Parameters{
     double tmin;
     double tmax;
@@ -39,6 +42,7 @@ struct Parameters{
     double zmax;
     size_t Nz;        
 
+    double E0;
     std::string field_fname;
 
     double a;
@@ -47,10 +51,11 @@ struct Parameters{
     double s;
     double Z;
 
+    std::string outdir;
+    std::string gfile_fname;
     std::string tfile_fname;
-    std::string rhofile_fname;
-    
     std::string densfile_fname;
+    std::string rhofile_fname;
 
     void print(std::ostream& out) const{
         out<<tmin<<" "<<tmax<<" "<<Nt<<std::endl;
@@ -146,6 +151,7 @@ public:
         _params.Nz=std::stoi(ini.get("rgrid").get("Nz"));
 
         //parse field file
+        _params.E0=std::stod(ini.get("field").get("E0"))/au2Vnm;
         _params.field_fname=ini.get("field").get("fname");
 
         //parse model parameters
@@ -165,10 +171,19 @@ public:
         _params.Z=std::stod(Z_str);
 
         //parse output
-        _params.tfile_fname=ini.get("output").get("tfile");
-        _params.rhofile_fname=ini.get("output").get("rhofile");
+        _params.outdir=ini.get("output").get("outdir");
 
-        _params.densfile_fname=ini.get("output").get("densfile");
+        fs::path gfile_path(_params.outdir);
+        _params.gfile_fname=(gfile_path/=ini.get("output").get("gfile")).c_str();
+
+        fs::path tfile_path(_params.outdir);
+        _params.tfile_fname=(tfile_path/=ini.get("output").get("tfile")).c_str();
+
+        fs::path densfile_path(_params.outdir);
+        _params.densfile_fname=(densfile_path/=ini.get("output").get("densfile")).c_str();
+
+        fs::path rhofile_path(_params.outdir);
+        _params.rhofile_fname=(rhofile_path/=ini.get("output").get("rhofile")).c_str();        
     }
 private:
     Parameters& _params;
