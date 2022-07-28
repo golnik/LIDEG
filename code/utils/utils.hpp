@@ -7,6 +7,8 @@
 #include <iostream>
 #include <complex>
 
+#include "integrator.hpp"
+
 #define au2nm 0.052917829614246
 #define au2A  0.52917829614246
 #define au2eV 27.211396641308
@@ -16,6 +18,32 @@ typedef std::complex<double> complex_t;
 const complex_t I=complex_t(0.,1.);
 
 #include <boost/algorithm/string.hpp>
+
+#include <algorithm> 
+#include <cctype>
+#include <locale>
+
+enum kgrid_types {regular=0, quad};
+
+// trim from start (in place)
+static inline void ltrim(std::string &s) {
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) {
+        return !std::isspace(ch);
+    }));
+}
+
+// trim from end (in place)
+static inline void rtrim(std::string &s) {
+    s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) {
+        return !std::isspace(ch);
+    }).base(), s.end());
+}
+
+// trim from both ends (in place)
+static inline void trim(std::string &s) {
+    ltrim(s);
+    rtrim(s);
+}
 
 void read_column_from_file(const std::string& fname, const size_t& icol,
     std::vector<double>& data){
@@ -46,15 +74,21 @@ bool replace(std::string& str, const std::string& from, const std::string& to) {
     return true;
 }
 
-std::vector<double> create_grid(const double& min, const double& max, const size_t& N){
+std::vector<double> create_grid(const double& min, const double& max, const size_t& N, const int& type=0){
     std::vector<double> grid(N);
 
-    double d=(max-min)/(N-1);
-    double var=min;
-    for(size_t i=0; i<N; i++){
-        grid[i]=var;
-        var+=d;
+    if(type==regular){
+        double d=(max-min)/(N-1);
+        double var=min;
+        for(size_t i=0; i<N; i++){
+            grid[i]=var;
+            var+=d;
+        }
     }
+    else if(type==quad){
+        grid=create_gauss_legendre_grid(min,max,N);
+    }
+
     return grid;
 }
 

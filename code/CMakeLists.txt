@@ -65,7 +65,7 @@ add_executable(
 
 add_executable(
     debug.exe
-    "${CMAKE_CURRENT_SOURCE_DIR}/integrator/gauss_legendre.c"    
+    "${CMAKE_CURRENT_SOURCE_DIR}/utils/gauss_legendre.c"    
     "${CMAKE_CURRENT_SOURCE_DIR}/debug.cpp"
 )
 target_link_libraries(debug.exe PRIVATE "stdc++fs")

@@ -2,7 +2,7 @@
 #define PARSER_HPP
 
 #include "mini/ini.h"
-#include "utils.hpp"
+#include "utils/utils.hpp"
 
 #include <string>
 #include <fstream>
@@ -21,6 +21,8 @@ struct Parameters{
 
     double dky;
     size_t Nky;
+
+    int kgrid_type;
 
     size_t Nclx;
     size_t Ncly;
@@ -112,6 +114,18 @@ public:
 
         std::string Nky_str=ini.get("kgrid").get("Nky");
         _params.Nky=std::stoi(Nky_str);
+
+        std::string kgrid_type_str=ini.get("kgrid").get("type");
+        trim(kgrid_type_str);
+        if(kgrid_type_str=="regular"){
+            _params.kgrid_type=regular;
+        }
+        else if(kgrid_type_str=="quad"){
+            _params.kgrid_type=quad;
+        }
+        else{
+            throw std::string("Wrong kgrid_type!");
+        }
 
         //parse rgrid section
         std::string Nclx_str=ini.get("rgrid").get("Nclx");

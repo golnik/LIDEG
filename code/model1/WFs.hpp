@@ -1,7 +1,7 @@
 #ifndef WFS_HPP
 #define WFS_HPP
 
-#include "utils.hpp"
+//#include "utils.hpp"
 #include "graphene.hpp"
 
 #include <boost/numeric/ublas/matrix.hpp>

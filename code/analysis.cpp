@@ -3,7 +3,7 @@
 
 #include "mini/ini.h"
 
-#include "utils.hpp"
+#include "utils/utils.hpp"
 #include "parser.hpp"
 #include "external_field.hpp"
 #include "model1/graphene.hpp"
@@ -99,23 +99,24 @@ int main(int argc, char** argv){
         std::ofstream tfile_out;
         tfile_out.open(params.tfile_fname);
 
-        tfile_out<<std::fixed;
+        tfile_out<<std::scientific;
+        //tfile_out<<std::fixed;
         tfile_out<<std::setprecision(8);
 
         tfile_out<<"#";
-        tfile_out<<std::setw(14)<<"Time";
-        tfile_out<<std::setw(15)<<"Ax";
-        tfile_out<<std::setw(15)<<"Ay";
-        tfile_out<<std::setw(15)<<"Ex";
-        tfile_out<<std::setw(15)<<"Ey";
-        tfile_out<<std::setw(15)<<"rho_vv";
-        tfile_out<<std::setw(15)<<"rho_cc";
-        tfile_out<<std::setw(15)<<"Re{rho_cv}";
-        tfile_out<<std::setw(15)<<"Im{rho_cv}";
-        tfile_out<<std::setw(15)<<"Jx_intra";
-        tfile_out<<std::setw(15)<<"Jy_intra";
-        tfile_out<<std::setw(15)<<"Jx_inter";
-        tfile_out<<std::setw(15)<<"Jy_inter";
+        tfile_out<<std::setw(19)<<"Time";
+        tfile_out<<std::setw(20)<<"Ax";
+        tfile_out<<std::setw(20)<<"Ay";
+        tfile_out<<std::setw(20)<<"Ex";
+        tfile_out<<std::setw(20)<<"Ey";
+        tfile_out<<std::setw(20)<<"rho_vv";
+        tfile_out<<std::setw(20)<<"rho_cc";
+        tfile_out<<std::setw(20)<<"Re{rho_cv}";
+        tfile_out<<std::setw(20)<<"Im{rho_cv}";
+        tfile_out<<std::setw(20)<<"Jx_intra";
+        tfile_out<<std::setw(20)<<"Jy_intra";
+        tfile_out<<std::setw(20)<<"Jx_inter";
+        tfile_out<<std::setw(20)<<"Jy_inter";
         tfile_out<<std::endl;
 
         for(size_t it=0; it<params.Nt; it++){
@@ -148,28 +149,32 @@ int main(int argc, char** argv){
             double pop0=0.;
             double pop1=0.;
             complex_t coh=0.;
-            double Jra_x=0.;
-            double Jra_y=0.;
-            double Jer_x=0.;
-            double Jer_y=0.;
+            double Jra[2]={0.,0.};
+            double Jer[2]={0.,0.};
 
             for(size_t iK=0; iK<nK; iK++){//loop over Dirac points
                 double Kx=Dirac_Kx[iK];
                 double Ky=Dirac_Ky[iK];
+                double Ktype=Dirac_type[iK];
 
-                auto kx_grid=create_grid(Kx-params.dkx,Kx+params.dkx,params.Nkx);
-                auto ky_grid=create_grid(Ky-params.dky,Ky+params.dky,params.Nky);
+                double kxmin=Kx-params.dkx;
+                double kxmax=Kx+params.dkx;
+                double kymin=Ky-params.dky;
+                double kymax=Ky+params.dky;
+
+                auto kx_grid=create_grid(kxmin,kxmax,params.Nkx,params.kgrid_type);
+                auto ky_grid=create_grid(kymin,kymax,params.Nky,params.kgrid_type);
 
                 dkx=kx_grid[1]-kx_grid[0];
                 dky=ky_grid[1]-ky_grid[0];
 
-                for(size_t ikx_K=0; ikx_K<params.Nkx; ikx_K++){
+                /*for(size_t ikx_K=0; ikx_K<params.Nkx; ikx_K++){
                     for(size_t iky_K=0; iky_K<params.Nky; iky_K++){
 
                         size_t ikx=0;
                         size_t iky=0;
                         //normal indices for K point
-                        if(Dirac_type[iK]==0){
+                        if(Ktype==0){
                             ikx=ikx_K;
                             iky=iky_K;
                         }
@@ -190,16 +195,128 @@ int main(int argc, char** argv){
                         double kxt=kx_grid[ikx_K]+(*Afield_x)(time);
                         double kyt=ky_grid[iky_K]+(*Afield_y)(time);
 
-                        Jra_x+=gm.px_vv(kxt,kyt)*rho_vv(ikx,iky);
+                        Jra[0]+=gm.px_vv(kxt,kyt)*rho_vv(ikx,iky);
                               +gm.px_cc(kxt,kyt)*rho_cc(ikx,iky);
 
-                        Jra_y+=gm.py_vv(kxt,kyt)*rho_vv(ikx,iky);
+                        Jra[1]+=gm.py_vv(kxt,kyt)*rho_vv(ikx,iky);
                               +gm.py_cc(kxt,kyt)*rho_cc(ikx,iky);
 
-                        Jer_x+=2.*std::real(gm.px_cv(kxt,kyt)*rho_cv);
-                        Jer_y+=2.*std::real(gm.py_cv(kxt,kyt)*rho_cv);
+                        Jer[0]+=2.*std::real(gm.px_cv(kxt,kyt)*rho_cv);
+                        Jer[1]+=2.*std::real(gm.py_cv(kxt,kyt)*rho_cv);
                     }
+                }*/
+
+                //integrate band populations
+                pop0+=integrate(params.Nkx,params.Nky,
+                    [rho_vv](const size_t& ix, const size_t& iy){
+                        return rho_vv(ix,iy);
+                    },
+                    kxmin,kxmax,
+                    kymin,kymax
+                );
+
+                pop1+=integrate(params.Nkx,params.Nky,
+                    [rho_cc](const size_t& ix, const size_t& iy){
+                        return rho_cc(ix,iy);
+                    },
+                    kxmin,kxmax,
+                    kymin,kymax                    
+                );                
+
+                //integrate coherences
+                double coh_re=integrate(params.Nkx,params.Nky,
+                    [rho_cv_re](const size_t& ix, const size_t& iy){
+                        return rho_cv_re(ix,iy);
+                    },
+                    kxmin,kxmax,
+                    kymin,kymax
+                );
+
+                double coh_im=integrate(params.Nkx,params.Nky,
+                    [rho_cv_im](const size_t& ix, const size_t& iy){
+                        return rho_cv_im(ix,iy);
+                    },
+                    kxmin,kxmax,
+                    kymin,kymax
+                );
+
+                coh+=coh_re+I*coh_im;
+
+                for(int dir=0; dir<2; dir++){
+                    Jra[dir]+=integrate(params.Nkx,params.Nky,
+                        [rho_vv,rho_cc,
+                        kx_grid,ky_grid,
+                        time,
+                        Afield_x,Afield_y,
+                        Ktype,params,
+                        gm,
+                        dir](const size_t& ikx_K, const size_t& iky_K){
+                            double kxt=kx_grid[ikx_K]+(*Afield_x)(time);
+                            double kyt=ky_grid[iky_K]+(*Afield_y)(time);
+
+                            size_t ikx=0;
+                            size_t iky=0;
+                            if(Ktype==0){//normal indices for K point
+                                ikx=ikx_K;
+                                iky=iky_K;
+                            }
+                            else{//inverse indices for K' point
+                                ikx=ikx_K;
+                                iky=params.Nky-iky_K-1;
+                            }
+
+                            if(dir==0){
+                                return gm.px_vv(kxt,kyt)*rho_vv(ikx,iky)
+                                      +gm.px_cc(kxt,kyt)*rho_cc(ikx,iky);
+                            }
+                            else if(dir==1){
+                                return gm.py_vv(kxt,kyt)*rho_vv(ikx,iky)
+                                      +gm.py_cc(kxt,kyt)*rho_cc(ikx,iky);
+                            }
+                        },
+                        kxmin,kxmax,
+                        kymin,kymax
+                    );
                 }
+
+                for(int dir=0; dir<2; dir++){
+                    Jer[dir]+=integrate(params.Nkx,params.Nky,
+                        [rho_cv_re,rho_cv_im,
+                        kx_grid,ky_grid,
+                        time,
+                        Afield_x,Afield_y,
+                        Ktype,params,
+                        gm,
+                        dir](const size_t& ikx_K, const size_t& iky_K){
+                            double kxt=kx_grid[ikx_K]+(*Afield_x)(time);
+                            double kyt=ky_grid[iky_K]+(*Afield_y)(time);
+
+                            size_t ikx=0;
+                            size_t iky=0;
+                            if(Ktype==0){//normal indices for K point
+                                ikx=ikx_K;
+                                iky=iky_K;
+                            }
+                            else{//inverse indices for K' point
+                                ikx=ikx_K;
+                                iky=params.Nky-iky_K-1;
+                            }
+
+                            complex_t rho_cv=rho_cv_re(ikx,iky)+I*rho_cv_im(ikx,iky);
+
+                            if(dir==0){
+                                return 2.*std::real(gm.px_cv(kxt,kyt)*rho_cv);
+                            }
+                            else if(dir==1){
+                                return 2.*std::real(gm.py_cv(kxt,kyt)*rho_cv);
+                            }
+                        },
+                        kxmin,kxmax,
+                        kymin,kymax
+                    );
+                }                
+
+                //res*=0.5*(b-a)*0.5*(d-c);
 
                 /*for(size_t ix=0; ix<params.Nx; ix++){
                     std::cout<<ix<<std::endl;     
@@ -271,31 +388,31 @@ int main(int argc, char** argv){
                 //}
             }//loop over Dirac points
 
-            pop0 /= params.Nkx*params.Nky*nK;
+            /*pop0 /= params.Nkx*params.Nky*nK;
             pop1 /= params.Nkx*params.Nky*nK;
             coh  /= params.Nkx*params.Nky*nK;
 
-            Jra_x*=dkx*dky;
-            Jra_y*=dkx*dky;
-            Jer_x*=dkx*dky;
-            Jer_y*=dkx*dky;
+            Jra[0]*=dkx*dky;
+            Jra[1]*=dkx*dky;
+            Jer[0]*=dkx*dky;
+            Jer[1]*=dkx*dky;*/
 
-            tfile_out<<std::setw(15)<<time*au2fs;
-            tfile_out<<std::setw(15)<<(*Afield_x)(time);
-            tfile_out<<std::setw(15)<<(*Afield_y)(time);
-            tfile_out<<std::setw(15)<<(*Efield_x)(time);
-            tfile_out<<std::setw(15)<<(*Efield_y)(time);
-            tfile_out<<std::setw(15)<<pop0;
-            tfile_out<<std::setw(15)<<pop1;
-            tfile_out<<std::setw(15)<<std::real(coh);
-            tfile_out<<std::setw(15)<<std::imag(coh);
-            tfile_out<<std::setw(15)<<Jra_x;
-            tfile_out<<std::setw(15)<<Jra_y;
-            tfile_out<<std::setw(15)<<Jer_x;
-            tfile_out<<std::setw(15)<<Jer_y;
+            tfile_out<<std::setw(20)<<time*au2fs;
+            tfile_out<<std::setw(20)<<(*Afield_x)(time);
+            tfile_out<<std::setw(20)<<(*Afield_y)(time);
+            tfile_out<<std::setw(20)<<(*Efield_x)(time);
+            tfile_out<<std::setw(20)<<(*Efield_y)(time);
+            tfile_out<<std::setw(20)<<pop0;
+            tfile_out<<std::setw(20)<<pop1;
+            tfile_out<<std::setw(20)<<std::real(coh);
+            tfile_out<<std::setw(20)<<std::imag(coh);
+            tfile_out<<std::setw(20)<<Jra[0];
+            tfile_out<<std::setw(20)<<Jra[1];
+            tfile_out<<std::setw(20)<<Jer[0];
+            tfile_out<<std::setw(20)<<Jer[1];
             tfile_out<<std::endl;
 
-            for(size_t ix=0; ix<params.Nx; ix++){
+            /*for(size_t ix=0; ix<params.Nx; ix++){
                 double x=xgrid[ix];
                 for(size_t iy=0; iy<params.Ny; iy++){
                     double y=ygrid[iy];
@@ -306,7 +423,7 @@ int main(int argc, char** argv){
                 }
             }
 
-            dens_t_out.close();
+            dens_t_out.close();*/
         }
         tfile_out.close();
     }catch(std::string er){

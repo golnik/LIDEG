@@ -9,7 +9,10 @@
 #include <boost/numeric/ublas/matrix.hpp>
 using namespace boost::numeric::ublas;
 
-#include "utils.hpp"
+#include <boost/math/differentiation/autodiff.hpp>
+using namespace boost::math::differentiation;
+
+//#include "utils.hpp"
 #include "external_field.hpp"
 
 class GrapheneModel{
@@ -52,20 +55,41 @@ public:
         Dirac_type.push_back(0);*/
     }
 
-    complex_t f(const double& kx, const double& ky) const{
+    /*complex_t f(const double& kx, const double& ky) const{
         return exp(I*kx*_a/sqrt(3.))+2.*exp(-I*0.5*kx*_a/sqrt(3.))*cos(0.5*ky*_a);
+    }*/
+
+    template<typename T1, typename T2>
+    promote<T1,T2> f_re(const T1& kx, const T2& ky) const{
+        return cos(kx*_a/sqrt(3.))+2.*cos(-0.5*kx*_a/sqrt(3.))*cos(0.5*ky*_a);
     }
+
+    template<typename T1, typename T2>
+    promote<T1,T2> f_im(const T1& kx, const T2& ky) const{
+        return sin(kx*_a/sqrt(3.))+2.*sin(-0.5*kx*_a/sqrt(3.))*cos(0.5*ky*_a);
+    }
+
+    complex_t f(const double& kx, const double& ky) const{
+        return f_re(kx,ky)+I*f_im(kx,ky);
+    }
+
+    template<typename T1, typename T2>
+    promote<T1,T2> fabs(const T1& kx, const T2& ky) const{
+        return sqrt(f_re(kx,ky)*f_re(kx,ky)+f_im(kx,ky)*f_im(kx,ky));
+    }    
 
     double phi(const double& kx, const double& ky) const{
         return arg(f(kx,ky));
     }
 
-    double ep(const double& kx, const double& ky) const{
-        return (_e2p+_gamma*abs(f(kx,ky)))/(1.+_s*abs(f(kx,ky)));
+    template<typename T1, typename T2>
+    promote<T1,T2> ep(const T1& kx, const T2& ky) const{
+        return (_e2p+_gamma*fabs(kx,ky))/(1.+_s*fabs(kx,ky));
     }
 
-    double em(const double& kx, const double& ky) const{
-        return (_e2p-_gamma*abs(f(kx,ky)))/(1.-_s*abs(f(kx,ky)));
+    template<typename T1, typename T2>
+    promote<T1,T2> em(const T1& kx, const T2& ky) const{
+        return (_e2p-_gamma*fabs(kx,ky))/(1.-_s*fabs(kx,ky));
     }
 
     double d_prefac(const double& kx, const double& ky) const{
@@ -84,29 +108,41 @@ public:
     }
 
     double px_vv(const double& kx, const double& ky) const{
-        return (_a*_gamma/abs(f(kx,ky)))
-               *sqrt(3.)*sin(0.5*sqrt(3.)*_a*kx)*cos(0.5*_a*ky);
+        //return (_a*_gamma/abs(f(kx,ky)))
+        //       *sqrt(3.)*sin(0.5*sqrt(3.)*_a*kx)*cos(0.5*_a*ky);
+        auto const kx_ad=make_fvar<double,1>(kx);
+        auto const autodiff=ep(kx_ad,ky);
+        return autodiff.derivative(1);
     }
 
     double py_vv(const double& kx, const double& ky) const{
-        return (_a*_gamma/abs(f(kx,ky)))
-                *(cos(0.5*sqrt(3.)*_a*kx)*sin(0.5*_a*ky)+sin(_a*ky));
+//        return (_a*_gamma/abs(f(kx,ky)))
+//                *(cos(0.5*sqrt(3.)*_a*kx)*sin(0.5*_a*ky)+sin(_a*ky));
+        auto const ky_ad=make_fvar<double,1>(ky);
+        auto const autodiff=ep(kx,ky_ad);
+        return autodiff.derivative(1);
     }
 
     double px_cc(const double& kx, const double& ky) const{
-        return -px_vv(kx,ky);
+        //return -px_vv(kx,ky);
+        auto const kx_ad=make_fvar<double,1>(kx);
+        auto const autodiff=em(kx_ad,ky);
+        return autodiff.derivative(1);
     }
 
     double py_cc(const double& kx, const double& ky) const{
-        return -py_vv(kx,ky);
+        //return -py_vv(kx,ky);
+        auto const ky_ad=make_fvar<double,1>(ky);
+        auto const autodiff=em(kx,ky_ad);
+        return autodiff.derivative(1);
     }
 
     complex_t px_cv(const double& kx, const double& ky) const{
-        return I*(ep(kx,ky)-em(kx,ky))*dx(kx,ky);
+        return I*(em(kx,ky)-ep(kx,ky))*dx(kx,ky);
     }
 
     complex_t py_cv(const double& kx, const double& ky) const{
-        return I*(ep(kx,ky)-em(kx,ky))*dy(kx,ky);
+        return I*(em(kx,ky)-ep(kx,ky))*dy(kx,ky);
     }    
 
     void print(){

@@ -6,7 +6,7 @@
 
 #include "mini/ini.h"
 
-#include "utils.hpp"
+#include "utils/utils.hpp"
 #include "parser.hpp"
 #include "external_field.hpp"
 #include "model1/graphene.hpp"
@@ -84,8 +84,22 @@ int main(int argc, char** argv){
         double Kx=Dirac_Kx[0];
         double Ky=Dirac_Ky[0];
 
-        auto kx_grid=create_grid(Kx-params.dkx,Kx+params.dkx,params.Nkx);
-        auto ky_grid=create_grid(Ky-params.dky,Ky+params.dky,params.Nky);
+        //create k grids
+        auto kx_grid=create_grid(Kx-params.dkx,Kx+params.dkx,params.Nkx,params.kgrid_type);
+        auto ky_grid=create_grid(Ky-params.dky,Ky+params.dky,params.Nky,params.kgrid_type);
+
+        //write grids to file
+        std::ofstream grid_out("output/grids.dat");
+        //write kx grid
+        grid_out<<kx_grid.size()<<std::endl;
+        for(size_t ikx=0; ikx<params.Nkx; ikx++)
+            grid_out<<kx_grid[ikx]-Kx<<" ";
+        grid_out<<std::endl;
+        grid_out<<ky_grid.size()<<std::endl;
+        for(size_t iky=0; iky<params.Nky; iky++)
+            grid_out<<ky_grid[iky]-Ky<<" ";
+        grid_out<<std::endl;  
+        grid_out.close();
 
         //prepare initial densities
         matrix<state_type> rho_t_kxky(params.Nkx,params.Nky);

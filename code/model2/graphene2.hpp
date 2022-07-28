@@ -4,7 +4,7 @@
 //This is the model from 
 //Faisal, Front. Chem. 10:859405 (2022). doi: 10.3389/fchem.2022.859405
 
-#include "utils.hpp"
+//#include "utils.hpp"
 #include "external_field.hpp"
 
 #include <boost/math/differentiation/autodiff.hpp>
