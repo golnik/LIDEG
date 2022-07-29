@@ -29,6 +29,7 @@ struct Parameters{
 
     size_t Nclx;
     size_t Ncly;
+    double Rmax;
 
     double xmin;
     double xmax;
@@ -56,6 +57,7 @@ struct Parameters{
     std::string tfile_fname;
     std::string densfile_fname;
     std::string rhofile_fname;
+    std::string afile_fname;
 
     void print(std::ostream& out) const{
         out<<tmin<<" "<<tmax<<" "<<Nt<<std::endl;
@@ -137,6 +139,8 @@ public:
         _params.Nclx=std::stoi(Nclx_str);
         std::string Ncly_str=ini.get("rgrid").get("Ncly");
         _params.Ncly=std::stoi(Ncly_str);
+        std::string Rmax_str=ini.get("rgrid").get("Rmax");
+        _params.Rmax=std::stod(Rmax_str)/au2A;
 
         _params.xmin=std::stod(ini.get("rgrid").get("xmin"))/au2A;
         _params.xmax=std::stod(ini.get("rgrid").get("xmax"))/au2A;
@@ -183,7 +187,10 @@ public:
         _params.densfile_fname=(densfile_path/=ini.get("output").get("densfile")).c_str();
 
         fs::path rhofile_path(_params.outdir);
-        _params.rhofile_fname=(rhofile_path/=ini.get("output").get("rhofile")).c_str();        
+        _params.rhofile_fname=(rhofile_path/=ini.get("output").get("rhofile")).c_str();
+
+        fs::path afile_path(_params.outdir);
+        _params.afile_fname=(afile_path/=ini.get("output").get("afile")).c_str();        
     }
 private:
     Parameters& _params;

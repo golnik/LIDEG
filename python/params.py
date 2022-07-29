@@ -57,6 +57,24 @@ class InputParams:
         self.tfile_fname    = os.path.join(self.outdir,config['output']['tfile'])
         self.rhofile_fname  = os.path.join(self.outdir,config['output']['rhofile'])
         self.densfile_fname = os.path.join(self.outdir,config['output']['densfile'])
+        self.afile_fname    = os.path.join(self.outdir,config['output']['afile'])
+
+        #create arrays of atom coordinates
+        with open(self.afile_fname,'r') as file:
+            self.atom_coords = []
+
+            Natoms_A1 = int(file.readline())
+            for ia in range(Natoms_A1):
+                data = file.readline().split()
+                x = float(data[0])
+                y = float(data[1])
+                self.atom_coords.append([x,y])
+            Natoms_A2 = int(file.readline())
+            for ia in range(Natoms_A2):
+                data = file.readline().split()
+                x = float(data[0])
+                y = float(data[1])
+                self.atom_coords.append([x,y])
 
         #create grids
         self.tgrid   = np.linspace(self.tmin,self.tmax,self.Nt)

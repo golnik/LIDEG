@@ -28,7 +28,17 @@ int main(int argc, char** argv){
         params.print(std::cout);
 
         //prepare grids
-        auto tgrid  =create_grid(params.tmin,params.tmax,params.Nt);
+        auto tgrid_tmp=create_grid(params.tmin,params.tmax,params.Nt);
+
+        //std::vector<int> tsteps(params.Nt);
+        //std::iota(tsteps.begin(),tsteps.end(),0);
+        //auto tgrid=tgrid_tmp;
+
+        size_t tstep=151;
+        std::vector<int> tsteps={tstep-1};
+        std::vector<double> tgrid={tgrid_tmp[tstep-1]};
+
+        //std::vector<double> tgrid=
 
         //prepare xyz grids
         auto xgrid=create_grid(params.xmin,params.xmax,params.Nx);
@@ -80,7 +90,16 @@ int main(int argc, char** argv){
                          Efield_x,Efield_y);
 
         //create WFs model
-        WFs wfs(&gm,params.Z,params.Nclx,params.Ncly);
+        double R0x=0.5*(params.xmax+params.xmin);
+        double R0y=0.5*(params.ymax+params.ymin);
+        WFs wfs(&gm,params.Z,params.Nclx,params.Ncly,
+                R0x,R0y,params.Rmax);
+
+        //print atom positions to file
+        std::ofstream atoms_out;
+        atoms_out.open(params.afile_fname);
+        wfs.print_atoms(atoms_out);
+        atoms_out.close();
 
         //create Dirac points
         std::vector<double> Dirac_Kx;
@@ -119,7 +138,7 @@ int main(int argc, char** argv){
         tfile_out<<std::setw(20)<<"Jy_inter";
         tfile_out<<std::endl;
 
-        for(size_t it=0; it<params.Nt; it++){
+        for(auto it: tsteps){
             //read density from file
             std::string dens_t_fname=params.densfile_fname;
             replace(dens_t_fname,"%it",boost::str(boost::format("%06d") % (it+1)));
@@ -131,6 +150,7 @@ int main(int argc, char** argv){
             matrix_t rho_cv_re=read_2D_from_file<matrix_t>(dens_t_fname,2,params.Nkx,params.Nky);
             matrix_t rho_cv_im=read_2D_from_file<matrix_t>(dens_t_fname,3,params.Nkx,params.Nky);
 
+            //array for real space data
             matrix<double> res(params.Nx,params.Ny);
             for(size_t ix=0; ix<params.Nx; ix++){
                 for(size_t iy=0; iy<params.Ny; iy++){
@@ -156,6 +176,11 @@ int main(int argc, char** argv){
                 double kxmax=Kx+params.dkx;
                 double kymin=Ky-params.dky;
                 double kymax=Ky+params.dky;
+
+                /*double kxmin=-2.;
+                double kxmax=2.;
+                double kymin=-2.;
+                double kymax=2.;*/
 
                 auto kx_grid=create_grid(kxmin,kxmax,params.Nkx,params.kgrid_type);
                 auto ky_grid=create_grid(kymin,kymax,params.Nky,params.kgrid_type);
@@ -202,7 +227,7 @@ int main(int argc, char** argv){
                 }*/
 
                 //integrate band populations
-                pop0+=integrate(params.Nkx,params.Nky,
+                /*pop0+=integrate(params.Nkx,params.Nky,
                     [rho_vv](const size_t& ix, const size_t& iy){
                         return rho_vv(ix,iy);
                     },
@@ -309,12 +334,10 @@ int main(int argc, char** argv){
                         kxmin,kxmax,
                         kymin,kymax
                     );
-                }                
+                }*/
 
-                //res*=0.5*(b-a)*0.5*(d-c);
-
-                /*for(size_t ix=0; ix<params.Nx; ix++){
-                    std::cout<<ix<<std::endl;     
+                for(size_t ix=0; ix<params.Nx; ix++){
+                    std::cout<<ix<<std::endl;
                     for(size_t iy=0; iy<params.Ny; iy++){
                         double x=xgrid[ix];
                         double y=ygrid[iy];
@@ -329,20 +352,31 @@ int main(int argc, char** argv){
                             double kx=kx_grid[ikx];
                             double ky=ky_grid[iky];
 
-                            //mres[im]=abs(wfs.psip(x,y,z,kx,ky));
-                            //mres[im]=std::real(std::conj(wfs.psim(x,y,z,kx,ky))*wfs.psip(x,y,z,kx,ky));
+                            //mres[im]=wfs.phi_2pz(x,y,z);
 
-                            mres[im]=pow(std::abs(wfs.psip(x,y,z,kx,ky)),2.)*rho00(ikx,iky)
-                                    +pow(std::abs(wfs.psim(x,y,z,kx,ky)),2.)*rho11(ikx,iky)
-                                    +2.*std::real(std::conj(wfs.psim(x,y,z,kx,ky))*wfs.psip(x,y,z,kx,ky))*rho01(ikx,iky)
-                                    ;
+                            //mres[im]=wfs.PhiA1(x,y,z,kx,ky);
+                            //mres[im]=wfs.PhiA2(x,y,z,kx,ky);
+
+                            double rho_vv=std::norm(wfs.psip(x,y,z,kx,ky));
+                            double rho_cc=std::norm(wfs.psim(x,y,z,kx,ky));
+
+                            complex_t rho_vc=std::conj(wfs.psip(x,y,z,kx,ky))*wfs.psim(x,y,z,kx,ky);
+
+                            //mres[im]=std::norm(wfs.psip(x,y,z,kx,ky));
+                            //mres[im]=std::norm(wfs.psim(x,y,z,kx,ky));
+                            mres[im]=std::real(std::conj(wfs.psim(x,y,z,kx,ky))*wfs.psip(x,y,z,kx,ky));
+
+                            //mres[im]=pow(std::abs(wfs.psip(x,y,z,kx,ky)),2.)*rho00(ikx,iky)
+                            //        +pow(std::abs(wfs.psim(x,y,z,kx,ky)),2.)*rho11(ikx,iky)
+                            //        +2.*std::real(std::conj(wfs.psim(x,y,z,kx,ky))*wfs.psip(x,y,z,kx,ky))*rho01(ikx,iky)
+                            //        ;
                         }
 
                         for(size_t im=0; im<Nmulti; im++){
                             res(ix,iy)+=mres[im];
                         }
 
-                        res(ix,iy)*=2.*dkx*dky;
+                        //res(ix,iy)=std::norm(res_tmp);//2.*dkx*dky;
 
                         /*std::vector<double> zvals(params.Nz);
 
@@ -379,8 +413,8 @@ int main(int argc, char** argv){
                         }
 
                         res(ix,iy)=int_z;*/
-                    //}
-                //}
+                    }
+                }
             }//loop over Dirac points
 
             /*pop0 /= params.Nkx*params.Nky*nK;
@@ -407,8 +441,8 @@ int main(int argc, char** argv){
             tfile_out<<std::setw(20)<<Jer[1];
             tfile_out<<std::endl;
 
-            //prepare output streams
-            /*std::string rho_t_fname=params.rhofile_fname;
+            //output real space data
+            std::string rho_t_fname=params.rhofile_fname;
             replace(rho_t_fname,"%it",boost::str(boost::format("%06d") % (it+1)));
             std::ofstream rho_t_out(rho_t_fname);
 
@@ -417,13 +451,10 @@ int main(int argc, char** argv){
                 for(size_t iy=0; iy<params.Ny; iy++){
                     double y=ygrid[iy];
 
-
-
                     rho_t_out<<res(ix,iy)<<std::endl;
                 }
             }
-
-            rho_t_out.close();*/
+            rho_t_out.close();
         }
         tfile_out.close();
     }catch(std::string er){
