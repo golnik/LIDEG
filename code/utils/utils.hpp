@@ -112,4 +112,15 @@ matrix_t read_2D_from_file(const std::string& fname, const size_t& icol, const s
     return res;
 }
 
+#define PBSTR "||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"
+#define PBWIDTH 60
+
+void printProgress(double percentage) {
+    int val = (int) (percentage * 100);
+    int lpad = (int) (percentage * PBWIDTH);
+    int rpad = PBWIDTH - lpad;
+    printf("\r%3d%% [%.*s%*s]\n", val, lpad, PBSTR, rpad, "");
+    fflush(stdout);
+}
+
 #endif

@@ -12,8 +12,9 @@ au2eV  = 27.211396641308
 au2Vnm = 5.14220826*10**2
 au2fs  = 0.02418884254
 
-def plot_rspace(params,it,rho_data,fig_fname):
-    rho_data = np.transpose(rho_data[:].reshape((params.Nx,params.Ny)))
+def plot_2D(params,it,rho_data,fig_fname):
+    rho_data = rho_data[:].reshape((params.Nx,params.Ny,params.Nz))
+    rho_data_xy = np.transpose(np.trapz(rho_data,x=params.zgrid,axis=2))
 
     fig, ax = plt.subplots(figsize=(8,8))
 
@@ -23,14 +24,14 @@ def plot_rspace(params,it,rho_data,fig_fname):
 
         ax.plot(x*au2A,y*au2A,'ro')
 
-    zmin = rho_data.min()
-    zmax = rho_data.max()
+    zmin = rho_data_xy.min()
+    zmax = rho_data_xy.max()
 
     #ZZ = max(abs(zmin),abs(zmax))
-    ZZ = 60.0
-    levels = np.linspace(-ZZ,ZZ,50)
+    ZZ = 200.0
+    levels = np.linspace(-ZZ,ZZ,51)
 
-    ax.contourf(params.xgrid*au2A,params.ygrid*au2A,rho_data,levels=levels,cmap=cm.seismic)
+    ax.contourf(params.xgrid*au2A,params.ygrid*au2A,rho_data_xy,levels=levels,cmap=cm.seismic)
     ax.set_box_aspect(1)
     ax.set_xlabel(r"$x [\AA]$",labelpad=10)
     ax.set_ylabel(r"$y [\AA]$",labelpad=5)

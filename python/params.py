@@ -63,17 +63,18 @@ class InputParams:
         with open(self.afile_fname,'r') as file:
             self.atom_coords = []
 
-            Natoms_A1 = int(file.readline())
-            for ia in range(Natoms_A1):
+            Natoms = int(file.readline())
+            for ia in range(Natoms):
                 data = file.readline().split()
+
+                #A1 atom
                 x = float(data[0])
                 y = float(data[1])
                 self.atom_coords.append([x,y])
-            Natoms_A2 = int(file.readline())
-            for ia in range(Natoms_A2):
-                data = file.readline().split()
-                x = float(data[0])
-                y = float(data[1])
+
+                #A2 atom
+                x = float(data[2])
+                y = float(data[3])
                 self.atom_coords.append([x,y])
 
         #create grids

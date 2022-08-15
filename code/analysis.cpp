@@ -4,6 +4,7 @@
 #include "mini/ini.h"
 
 #include "utils/utils.hpp"
+#include "utils/multiarray.hpp"
 #include "parser.hpp"
 #include "external_field.hpp"
 #include "model1/graphene.hpp"
@@ -19,6 +20,7 @@ typedef matrix<double> matrix_t;
 int main(int argc, char** argv){
     try{
         std::string fname=argv[1];
+        int tstep=std::stoi(argv[2])-1;
 
         Parameters params;
         Parser parser(params);
@@ -29,14 +31,16 @@ int main(int argc, char** argv){
 
         //prepare grids
         auto tgrid_tmp=create_grid(params.tmin,params.tmax,params.Nt);
+        std::vector<double> tgrid;
 
         //std::vector<int> tsteps(params.Nt);
         //std::iota(tsteps.begin(),tsteps.end(),0);
-        //auto tgrid=tgrid_tmp;
 
-        size_t tstep=151;
-        std::vector<int> tsteps={tstep-1};
-        std::vector<double> tgrid={tgrid_tmp[tstep-1]};
+        std::vector<int> tsteps={tstep};
+        
+        for(auto it: tsteps){
+            tgrid.push_back(tgrid_tmp[it]);
+        }
 
         //std::vector<double> tgrid=
 
@@ -89,17 +93,15 @@ int main(int argc, char** argv){
         GrapheneModel gm(params.a,params.e2p,params.gamma,params.s,
                          Efield_x,Efield_y);
 
-        //create WFs model
+        //create graphene layer
         double R0x=0.5*(params.xmax+params.xmin);
-        double R0y=0.5*(params.ymax+params.ymin);
-        WFs wfs(&gm,params.Z,params.Nclx,params.Ncly,
+        double R0y=0.5*(params.ymax+params.ymin);        
+        GrapheneLayer gl(params.a,
+                params.Nclx,params.Ncly,
                 R0x,R0y,params.Rmax);
 
-        //print atom positions to file
-        std::ofstream atoms_out;
-        atoms_out.open(params.afile_fname);
-        wfs.print_atoms(atoms_out);
-        atoms_out.close();
+        //area of BZ
+        double SBZ=pow(2.*M_PI,2.)/(0.5*sqrt(3.)*params.a*params.a);
 
         //create Dirac points
         std::vector<double> Dirac_Kx;
@@ -109,10 +111,32 @@ int main(int argc, char** argv){
         gm.get_Dirac_points(Dirac_Kx,Dirac_Ky,Dirac_type);
         size_t nK=Dirac_Kx.size();
 
-        //auto vec=wfs._A1;
-        //std::cout<<vec.size()<<std::endl;
+        std::vector<WFs_grid*> wfs(nK);
 
-        //return 0;
+        for(size_t iK=0; iK<nK; iK++){//loop over Dirac points
+            double Kx=Dirac_Kx[iK];
+            double Ky=Dirac_Ky[iK];
+            double Ktype=Dirac_type[iK];
+
+            double kxmin=Kx-params.dkx;
+            double kxmax=Kx+params.dkx;
+            double kymin=Ky-params.dky;
+            double kymax=Ky+params.dky;
+
+            auto kx_grid=create_grid(kxmin,kxmax,params.Nkx,params.kgrid_type);        
+            auto ky_grid=create_grid(kymin,kymax,params.Nky,params.kgrid_type);
+
+            //WFs wfs(&gm,&gl,params.Z);
+            //WFs_grid wfs_g(&gm,&gl,params.Z,kx_grid,ky_grid);
+            //wfs.push_back(WFs_grid(&gm,&gl,params.Z,kx_grid,ky_grid));
+            wfs[iK]=new WFs_grid(&gm,&gl,params.Z,kx_grid,ky_grid);
+        }
+
+        //print atom positions to file
+        std::ofstream atoms_out;
+        atoms_out.open(params.afile_fname);
+        gl.print_atoms(atoms_out);
+        atoms_out.close();
 
         //prepare output streams
         std::ofstream tfile_out;
@@ -128,15 +152,35 @@ int main(int argc, char** argv){
         tfile_out<<std::setw(20)<<"Ay";
         tfile_out<<std::setw(20)<<"Ex";
         tfile_out<<std::setw(20)<<"Ey";
-        tfile_out<<std::setw(20)<<"rho_vv";
-        tfile_out<<std::setw(20)<<"rho_cc";
-        tfile_out<<std::setw(20)<<"Re{rho_cv}";
-        tfile_out<<std::setw(20)<<"Im{rho_cv}";
+        tfile_out<<std::setw(20)<<"dens_vv";
+        tfile_out<<std::setw(20)<<"dens_cc";
+        tfile_out<<std::setw(20)<<"Re{dens_cv}";
+        tfile_out<<std::setw(20)<<"Im{dens_cv}";
         tfile_out<<std::setw(20)<<"Jx_intra";
         tfile_out<<std::setw(20)<<"Jy_intra";
         tfile_out<<std::setw(20)<<"Jx_inter";
         tfile_out<<std::setw(20)<<"Jy_inter";
         tfile_out<<std::endl;
+
+        /*MultiArray<complex_t,64,64,64,64,64> tmp;
+
+        for(size_t ikx=0; ikx<params.Nkx; ikx++){
+            for(size_t iky=0; iky<params.Nky; iky++){
+                for(size_t ix=0; ix<params.Nx; ix++){
+                    for(size_t iy=0; iy<params.Ny; iy++){
+                        for(size_t iz=0; iz<params.Nz; iz++){
+                            double kx=
+                        }
+                    }
+                }
+            }
+        }
+
+        return 1;*/
+
+        //array for real space data
+        //matrix<double> res(params.Nx,params.Ny);
+        MultiArray<double,64,64,64> res;
 
         for(auto it: tsteps){
             //read density from file
@@ -145,18 +189,10 @@ int main(int argc, char** argv){
 
             std::cout<<dens_t_fname<<std::endl;
 
-            matrix_t rho_vv=read_2D_from_file<matrix_t>(dens_t_fname,0,params.Nkx,params.Nky);
-            matrix_t rho_cc=read_2D_from_file<matrix_t>(dens_t_fname,1,params.Nkx,params.Nky);
-            matrix_t rho_cv_re=read_2D_from_file<matrix_t>(dens_t_fname,2,params.Nkx,params.Nky);
-            matrix_t rho_cv_im=read_2D_from_file<matrix_t>(dens_t_fname,3,params.Nkx,params.Nky);
-
-            //array for real space data
-            matrix<double> res(params.Nx,params.Ny);
-            for(size_t ix=0; ix<params.Nx; ix++){
-                for(size_t iy=0; iy<params.Ny; iy++){
-                    res(ix,iy)=0.;
-                }
-            }
+            matrix_t dens_vv=read_2D_from_file<matrix_t>(dens_t_fname,0,params.Nkx,params.Nky);
+            matrix_t dens_cc=read_2D_from_file<matrix_t>(dens_t_fname,1,params.Nkx,params.Nky);
+            matrix_t dens_cv_re=read_2D_from_file<matrix_t>(dens_t_fname,2,params.Nkx,params.Nky);
+            matrix_t dens_cv_im=read_2D_from_file<matrix_t>(dens_t_fname,3,params.Nkx,params.Nky);
 
             double time=tgrid[it];
 
@@ -167,6 +203,18 @@ int main(int argc, char** argv){
             double Jra[2]={0.,0.};
             double Jer[2]={0.,0.};
 
+            double* mres=new double [Nmulti];
+
+            for(size_t ix=0; ix<params.Nx; ix++){
+                for(size_t iy=0; iy<params.Ny; iy++){
+                    for(size_t iz=0; iz<params.Nz; iz++){
+                        res(ix,iy,iz)=0.;
+                    }
+                }
+            }
+
+            double progress=0.;
+            double dP=1./(static_cast<double>(params.Nx)*static_cast<double>(nK));
             for(size_t iK=0; iK<nK; iK++){//loop over Dirac points
                 double Kx=Dirac_Kx[iK];
                 double Ky=Dirac_Ky[iK];
@@ -184,6 +232,10 @@ int main(int argc, char** argv){
 
                 auto kx_grid=create_grid(kxmin,kxmax,params.Nkx,params.kgrid_type);
                 auto ky_grid=create_grid(kymin,kymax,params.Nky,params.kgrid_type);
+
+                //create WFs model
+                //WFs wfs(&gm,&gl,params.Z);
+                //WFs_grid wfs_g(&gm,&gl,params.Z,kx_grid,ky_grid);
 
                 dkx=kx_grid[1]-kx_grid[0];
                 dky=ky_grid[1]-ky_grid[0];
@@ -227,17 +279,17 @@ int main(int argc, char** argv){
                 }*/
 
                 //integrate band populations
-                /*pop0+=integrate(params.Nkx,params.Nky,
-                    [rho_vv](const size_t& ix, const size_t& iy){
-                        return rho_vv(ix,iy);
+                pop0+=integrate(params.Nkx,params.Nky,
+                    [dens_vv](const size_t& ix, const size_t& iy){
+                        return dens_vv(ix,iy);
                     },
                     kxmin,kxmax,
                     kymin,kymax
                 );
 
                 pop1+=integrate(params.Nkx,params.Nky,
-                    [rho_cc](const size_t& ix, const size_t& iy){
-                        return rho_cc(ix,iy);
+                    [dens_cc](const size_t& ix, const size_t& iy){
+                        return dens_cc(ix,iy);
                     },
                     kxmin,kxmax,
                     kymin,kymax                    
@@ -245,16 +297,16 @@ int main(int argc, char** argv){
 
                 //integrate coherences
                 double coh_re=integrate(params.Nkx,params.Nky,
-                    [rho_cv_re](const size_t& ix, const size_t& iy){
-                        return rho_cv_re(ix,iy);
+                    [dens_cv_re](const size_t& ix, const size_t& iy){
+                        return dens_cv_re(ix,iy);
                     },
                     kxmin,kxmax,
                     kymin,kymax
                 );
 
                 double coh_im=integrate(params.Nkx,params.Nky,
-                    [rho_cv_im](const size_t& ix, const size_t& iy){
-                        return rho_cv_im(ix,iy);
+                    [dens_cv_im](const size_t& ix, const size_t& iy){
+                        return dens_cv_im(ix,iy);
                     },
                     kxmin,kxmax,
                     kymin,kymax
@@ -264,7 +316,7 @@ int main(int argc, char** argv){
 
                 for(int dir=0; dir<2; dir++){
                     Jra[dir]+=integrate(params.Nkx,params.Nky,
-                        [rho_vv,rho_cc,
+                        [dens_vv,dens_cc,
                         kx_grid,ky_grid,
                         time,
                         Afield_x,Afield_y,
@@ -286,12 +338,12 @@ int main(int argc, char** argv){
                             }
 
                             if(dir==0){
-                                return gm.px_vv(kxt,kyt)*rho_vv(ikx,iky)
-                                      +gm.px_cc(kxt,kyt)*rho_cc(ikx,iky);
+                                return gm.px_vv(kxt,kyt)*dens_vv(ikx,iky)
+                                      +gm.px_cc(kxt,kyt)*dens_cc(ikx,iky);
                             }
                             else if(dir==1){
-                                return gm.py_vv(kxt,kyt)*rho_vv(ikx,iky)
-                                      +gm.py_cc(kxt,kyt)*rho_cc(ikx,iky);
+                                return gm.py_vv(kxt,kyt)*dens_vv(ikx,iky)
+                                      +gm.py_cc(kxt,kyt)*dens_cc(ikx,iky);
                             }
                         },
                         kxmin,kxmax,
@@ -301,7 +353,7 @@ int main(int argc, char** argv){
 
                 for(int dir=0; dir<2; dir++){
                     Jer[dir]+=integrate(params.Nkx,params.Nky,
-                        [rho_cv_re,rho_cv_im,
+                        [dens_cv_re,dens_cv_im,
                         kx_grid,ky_grid,
                         time,
                         Afield_x,Afield_y,
@@ -322,100 +374,102 @@ int main(int argc, char** argv){
                                 iky=params.Nky-iky_K-1;
                             }
 
-                            complex_t rho_cv=rho_cv_re(ikx,iky)+I*rho_cv_im(ikx,iky);
+                            complex_t dens_cv=dens_cv_re(ikx,iky)+I*dens_cv_im(ikx,iky);
 
                             if(dir==0){
-                                return 2.*std::real(gm.px_cv(kxt,kyt)*rho_cv);
+                                return 2.*std::real(gm.px_cv(kxt,kyt)*dens_cv);
                             }
                             else if(dir==1){
-                                return 2.*std::real(gm.py_cv(kxt,kyt)*rho_cv);
+                                return 2.*std::real(gm.py_cv(kxt,kyt)*dens_cv);
                             }
                         },
                         kxmin,kxmax,
                         kymin,kymax
                     );
-                }*/
+                }
 
+                //3D real-space densities
                 for(size_t ix=0; ix<params.Nx; ix++){
-                    std::cout<<ix<<std::endl;
+                    progress+=dP;
+                    if((ix%static_cast<int>(2*log2(params.Nx)))==0){
+                        printProgress(progress);
+                    }
+
                     for(size_t iy=0; iy<params.Ny; iy++){
-                        double x=xgrid[ix];
-                        double y=ygrid[iy];
-                        
-                        double* mres=new double [Nmulti];
-
-                        #pragma omp parallel for
-                        for(size_t im=0; im<Nmulti; im++){
-                            size_t ikx=mgrid[im];
-                            size_t iky=mgrid[im+Nmulti];
-
-                            double kx=kx_grid[ikx];
-                            double ky=ky_grid[iky];
-
-                            //mres[im]=wfs.phi_2pz(x,y,z);
-
-                            //mres[im]=wfs.PhiA1(x,y,z,kx,ky);
-                            //mres[im]=wfs.PhiA2(x,y,z,kx,ky);
-
-                            double rho_vv=std::norm(wfs.psip(x,y,z,kx,ky));
-                            double rho_cc=std::norm(wfs.psim(x,y,z,kx,ky));
-
-                            complex_t rho_vc=std::conj(wfs.psip(x,y,z,kx,ky))*wfs.psim(x,y,z,kx,ky);
-
-                            //mres[im]=std::norm(wfs.psip(x,y,z,kx,ky));
-                            //mres[im]=std::norm(wfs.psim(x,y,z,kx,ky));
-                            mres[im]=std::real(std::conj(wfs.psim(x,y,z,kx,ky))*wfs.psip(x,y,z,kx,ky));
-
-                            //mres[im]=pow(std::abs(wfs.psip(x,y,z,kx,ky)),2.)*rho00(ikx,iky)
-                            //        +pow(std::abs(wfs.psim(x,y,z,kx,ky)),2.)*rho11(ikx,iky)
-                            //        +2.*std::real(std::conj(wfs.psim(x,y,z,kx,ky))*wfs.psip(x,y,z,kx,ky))*rho01(ikx,iky)
-                            //        ;
-                        }
-
-                        for(size_t im=0; im<Nmulti; im++){
-                            res(ix,iy)+=mres[im];
-                        }
-
-                        //res(ix,iy)=std::norm(res_tmp);//2.*dkx*dky;
-
-                        /*std::vector<double> zvals(params.Nz);
-
-                        #pragma omp parallel for
                         for(size_t iz=0; iz<params.Nz; iz++){
-
                             double x=xgrid[ix];
                             double y=ygrid[iy];
                             double z=zgrid[iz];
 
-                            /*double int_kx=0.;
-                            for(size_t ikx=0; ikx<params.Nkx; ikx++){
-                                double kx=kx_grid[ikx];
-                                
-                                double int_ky=0.;
-                                for(size_t iky=0; iky<params.Nky; iky++){
-                                    double ky=ky_grid[iky];
+                            for(size_t im=0; im<Nmulti; im++)
+                                mres[im]=0.;
 
-                                    int_ky+=abs(wfs.PhiA1(x,y,z,kx,ky));
-                                }
-                                int_kx+=int_ky;
+                            #pragma omp parallel for
+                            for(size_t im=0; im<Nmulti; im++){
+                                size_t ikx=mgrid[im];
+                                size_t iky=mgrid[im+Nmulti];
+
+                                double kx=kx_grid[ikx];
+                                double ky=ky_grid[iky];
+
+                                double kxt=kx+(*Afield_x)(time);
+                                double kyt=ky+(*Afield_y)(time);
+
+                                complex_t dens_cv=dens_cv_re(ikx,iky)+I*dens_cv_im(ikx,iky);
+
+                                //mres[im]=wfs.phi_2pz(x,y,z);
+
+                                //mres[im]=wfs.PhiA1(x,y,z,kx,ky);
+                                //mres[im]=wfs.PhiA2(x,y,z,kx,ky);
+
+                                //double rho_vv=std::norm(wfs.psip(x,y,z,kx,ky));
+                                //double rho_cc=std::norm(wfs.psim(x,y,z,kx,ky));
+
+                                //complex_t psip=wfs.psip(x,y,z,kxt,kyt);
+                                //complex_t psim=wfs.psim(x,y,z,kxt,kyt);
+
+                                //complex_t rho_vc=std::conj(wfs.psip(x,y,z,kx,ky))*wfs.psim(x,y,z,kx,ky);
+
+                                complex_t psip=wfs[iK]->psip(x,y,z,ikx,iky);
+                                complex_t psim=wfs[iK]->psim(x,y,z,ikx,iky);
+
+                                double rho_vv=std::norm(psip);
+                                double rho_cc=std::norm(psim);
+                                complex_t rho_vc=std::conj(psip)*psim;
+
+                                double rho_t=dens_vv(ikx,iky)*rho_vv
+                                            +dens_cc(ikx,iky)*rho_cc
+                                            +2.*std::real(dens_cv*rho_vc);
+                                //rho_t*=(2./SBZ);
+
+                                mres[im]=rho_t-rho_vv;
+
+                                //mres[im]=std::norm(psip);
+                                //mres[im]=std::norm(psim);
+
+                                //mres[im]=dens_vv(ikx,iky)*rho_vv
+                                //        +dens_cc(ikx,iky)*rho_cc
+                                //        -rho_vv;
+                                //mres[im]=dens_cc(ikx,iky)
+                                //        *(-rho_vv+rho_cc);
+                                
+                                //mres[im]=std::norm(wfs.psim(x,y,z,kx,ky));
+                                //mres[im]=std::real(std::conj(wfs.psim(x,y,z,kx,ky))*wfs.psip(x,y,z,kx,ky));
+
+                                //mres[im]=pow(std::abs(wfs.psip(x,y,z,kx,ky)),2.)*rho00(ikx,iky)
+                                //        +pow(std::abs(wfs.psim(x,y,z,kx,ky)),2.)*rho11(ikx,iky)
+                                //        +2.*std::real(std::conj(wfs.psim(x,y,z,kx,ky))*wfs.psip(x,y,z,kx,ky))*rho01(ikx,iky)
+                                //        ;
                             }
 
-                            double int_kx=abs(wfs.psim(x,y,z,0,0));
-
-                            zvals[iz]=int_kx;
-
-                            //int_z+=pow(wfs.phi_2pz(x,y,z),2.);
-                        }
-
-                        double int_z=0.;
-                        for(size_t iz=0; iz<params.Nz; iz++){
-                            int_z+=zvals[iz];
-                        }
-
-                        res(ix,iy)=int_z;*/
-                    }
-                }
+                            for(size_t im=0; im<Nmulti; im++){
+                                res(ix,iy,iz)+=mres[im];
+                            }
+                        }//z loop
+                    }//y loop        
+                }//x loop
             }//loop over Dirac points
+            std::cout<<std::endl;
 
             /*pop0 /= params.Nkx*params.Nky*nK;
             pop1 /= params.Nkx*params.Nky*nK;
@@ -447,11 +501,17 @@ int main(int argc, char** argv){
             std::ofstream rho_t_out(rho_t_fname);
 
             for(size_t ix=0; ix<params.Nx; ix++){
-                double x=xgrid[ix];
                 for(size_t iy=0; iy<params.Ny; iy++){
-                    double y=ygrid[iy];
+                    double res_xy=0.;
+                    for(size_t iz=0; iz<params.Nz; iz++){
+                        //double x=xgrid[ix];
+                        //double y=ygrid[iy];
+                        //double z=zgrid[iz];
 
-                    rho_t_out<<res(ix,iy)<<std::endl;
+                        //res_xy+=res(ix,iy,iz);
+                        rho_t_out<<res(ix,iy,iz)<<std::endl;
+                    }
+                    //rho_t_out<<res_xy<<std::endl;
                 }
             }
             rho_t_out.close();

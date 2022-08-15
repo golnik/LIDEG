@@ -12,6 +12,9 @@ from plots.plot_debug import *
 from plots.plot_tdata import *
 from plots.plot_reciprocal import *
 from plots.plot_rspace import *
+from plots.plot_2D import *
+#from plots.plot_3D import *
+from plots.plot_all import *
 
 #import matplotlib.pyplot as plt
 #from matplotlib import cm
@@ -40,18 +43,24 @@ def plot_tstep(params,it,fig_fname=None):
 
     print("%s figure is created" % fig_fname)
 
-    #dens_t_fname = params.densfile_fname.replace("%it",'{:06}'.format(it+1))
-    #dens_data = np.loadtxt(dens_t_fname)
-
-    #dens_cc = np.transpose(dens_data[:,1].reshape((params.Nkx,params.Nky)))
+    dens_t_fname = params.densfile_fname.replace("%it",'{:06}'.format(it+1))
+    dens_data = np.loadtxt(dens_t_fname)
+    dens_cc = np.transpose(dens_data[:,1].reshape((params.Nkx,params.Nky)))
 
     #plot_reciprocal(params,it,dens_cc,fig_fname)
 
     rho_t_fname = params.rhofile_fname.replace("%it",'{:06}'.format(it+1))
-    rho_data = np.loadtxt(rho_t_fname)
-    rho_data = np.transpose(rho_data[:].reshape((params.Nx,params.Ny)))
+    #rho_t_fname = "3Dplots/psip.dat"
+    if os.path.exists(rho_t_fname):
+        rho_data = np.loadtxt(rho_t_fname)
+        #rho_data = np.transpose(rho_data[:].reshape((params.Nx,params.Ny)))
 
-    plot_rspace(params,it,rho_data,fig_fname)
+        #plot_rspace(params,it,rho_data,fig_fname)
+
+        plot_2D(params,it,rho_data,fig_fname)
+        #plot_3D(params,it,rho_data,fig_fname)
+
+        #plot_all(params,it,dens_cc,rho_data,fig_fname)
 
     return
 

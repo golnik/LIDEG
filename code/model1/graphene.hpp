@@ -17,6 +17,7 @@ using namespace boost::math::differentiation;
 
 class GrapheneModel{
     friend class WFs;
+    friend class WFs_grid;
     typedef matrix<complex_t> state_type;
 public:
     GrapheneModel(const double& a,
@@ -40,12 +41,12 @@ public:
         Dirac_type.push_back(0);
 
         //add K' point
-        /*Dirac_Kx.push_back(Kx);
+        Dirac_Kx.push_back(Kx);
         Dirac_Ky.push_back(-Ky);
         Dirac_type.push_back(1);
 
         //add K point
-        Dirac_Kx.push_back(-Kx);
+        /*Dirac_Kx.push_back(-Kx);
         Dirac_Ky.push_back(Ky);
         Dirac_type.push_back(0);
 
