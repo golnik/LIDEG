@@ -64,17 +64,24 @@ add_executable(
 )
 
 add_executable(
-    debug.exe
-    "${CMAKE_CURRENT_SOURCE_DIR}/utils/gauss_legendre.c"    
-    "${CMAKE_CURRENT_SOURCE_DIR}/debug.cpp"
+    rspace.exe
+    "${CMAKE_CURRENT_SOURCE_DIR}/rspace.cpp"  
 )
+
+#add_executable(
+#    debug.exe
+#    "${CMAKE_CURRENT_SOURCE_DIR}/utils/gauss_legendre.c"    
+#    "${CMAKE_CURRENT_SOURCE_DIR}/debug.cpp"
+#)
 
 target_link_libraries(main.exe PRIVATE "stdc++fs")
 target_link_libraries(analysis.exe PRIVATE "stdc++fs")
-target_link_libraries(debug.exe PRIVATE "stdc++fs")
+target_link_libraries(rspace.exe PRIVATE "stdc++fs")
+#target_link_libraries(debug.exe PRIVATE "stdc++fs")
 
 find_package(OpenMP)
 if(OpenMP_CXX_FOUND)
     target_link_libraries(main.exe PUBLIC OpenMP::OpenMP_CXX)
     target_link_libraries(analysis.exe PUBLIC OpenMP::OpenMP_CXX)
+    target_link_libraries(rspace.exe PUBLIC OpenMP::OpenMP_CXX)
 endif()

@@ -121,8 +121,8 @@ public:
     _Z(Z){}
 
     ~WFs(){
-        delete _gm;
-        delete _gl;
+        //delete _gm;
+        //delete _gl;
     }
 
     double phi_2pz(const double& rx, const double& ry, const double& rz) const{

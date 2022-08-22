@@ -28,7 +28,7 @@ def plot_2D(params,it,rho_data,fig_fname):
     zmax = rho_data_xy.max()
 
     #ZZ = max(abs(zmin),abs(zmax))
-    ZZ = 200.0
+    ZZ = 30.0
     levels = np.linspace(-ZZ,ZZ,51)
 
     ax.contourf(params.xgrid*au2A,params.ygrid*au2A,rho_data_xy,levels=levels,cmap=cm.seismic)

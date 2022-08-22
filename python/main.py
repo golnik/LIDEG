@@ -41,26 +41,30 @@ def plot_tstep(params,it,fig_fname=None):
         fig_fname = "fig_%s.png" % ('{:06}'.format(it+1))
         fig_fname = os.path.join(fig_dir,fig_fname)
 
-    print("%s figure is created" % fig_fname)
+    print("%s figure will be created" % fig_fname)
 
     dens_t_fname = params.densfile_fname.replace("%it",'{:06}'.format(it+1))
-    dens_data = np.loadtxt(dens_t_fname)
-    dens_cc = np.transpose(dens_data[:,1].reshape((params.Nkx,params.Nky)))
-
-    #plot_reciprocal(params,it,dens_cc,fig_fname)
-
     rho_t_fname = params.rhofile_fname.replace("%it",'{:06}'.format(it+1))
-    #rho_t_fname = "3Dplots/psip.dat"
-    if os.path.exists(rho_t_fname):
+
+    dens_f_exists = os.path.exists(dens_t_fname)
+    rho_f_exists  = os.path.exists(rho_t_fname)
+
+    if dens_f_exists:
+        dens_data = np.loadtxt(dens_t_fname)
+        dens_cc = np.transpose(dens_data[:,1].reshape((params.Nkx,params.Nky)))
+        #plot_reciprocal(params,it,dens_cc,fig_fname)
+
+    if rho_f_exists:
         rho_data = np.loadtxt(rho_t_fname)
         #rho_data = np.transpose(rho_data[:].reshape((params.Nx,params.Ny)))
 
         #plot_rspace(params,it,rho_data,fig_fname)
 
-        plot_2D(params,it,rho_data,fig_fname)
+        #plot_2D(params,it,rho_data,fig_fname)
         #plot_3D(params,it,rho_data,fig_fname)
 
-        #plot_all(params,it,dens_cc,rho_data,fig_fname)
+    if dens_f_exists and rho_f_exists:
+        plot_all(params,it,dens_cc,rho_data,fig_fname)
 
     return
 

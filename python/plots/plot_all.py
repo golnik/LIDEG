@@ -2,6 +2,7 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 from matplotlib import cm
+from matplotlib import colors
 
 plt.rcParams.update({'font.size': 16})
 plt.rcParams["mathtext.fontset"] = "cm"
@@ -19,7 +20,8 @@ def plot_all(params,it,dens_data,rho_data,fig_fname):
     Efield = tdata[:,3]
     coh_re = tdata[:,7]
 
-    rho_data = np.transpose(rho_data[:].reshape((params.Nx,params.Ny)))
+    rho_data = rho_data[:].reshape((params.Nx,params.Ny,params.Nz))
+    rho_data_xy = np.transpose(np.trapz(rho_data,x=params.zgrid,axis=2))
 
     fig = plt.figure(figsize=(9,8))
 
@@ -43,19 +45,48 @@ def plot_all(params,it,dens_data,rho_data,fig_fname):
     axt1.axvline(params.tgrid[it]*au2fs,c='r',lw=3)
     axt2.axvline(params.tgrid[it]*au2fs,c='r',lw=3)
 
-
     levels = np.linspace(0.,1.,50)
     axl.contourf(params.kx_grid/au2nm,params.ky_grid/au2nm,dens_data,levels=levels,cmap=cm.jet)
     axl.set_box_aspect(1)
     axl.set_xlabel(r"$k_x [\mathrm{nm}^{-1}]$",labelpad=10)
     axl.set_ylabel(r"$k_y [\mathrm{nm}^{-1}]$",labelpad=5)
 
-    ZZ = 80.0
-    levels = np.linspace(-ZZ,ZZ,50)
-    axr.contourf(params.xgrid*au2A,params.ygrid*au2A,rho_data,levels=levels,cmap=cm.seismic)
+    rho_m = np.zeros((params.Nx,params.Ny))
+    rho_p = np.zeros((params.Nx,params.Ny))
+    for ix in range(params.Nx):
+        for iy in range(params.Ny):
+            rho = rho_data_xy[ix,iy]
+            if rho>0:
+                rho_p[ix,iy] = rho
+            else:
+                rho_m[ix,iy] = rho
+
+    #ZZ = max(abs(rho_data_xy.min()),abs(rho_data_xy.max()))
+    ZZ = 90.0
+    levels_p = np.linspace(0,ZZ,151)
+    levels_n = np.linspace(-ZZ,0,151)
+    axr.contourf(params.xgrid*au2A,params.ygrid*au2A,rho_p,levels=levels_p,cmap=cm.Reds)
+    axr.contourf(params.xgrid*au2A,params.ygrid*au2A,rho_m,levels=levels_n,cmap=cm.Blues)
     axr.set_box_aspect(1)
     axr.set_xlabel(r"$x [\AA]$",labelpad=10)
     axr.set_ylabel(r"$y [\AA]$",labelpad=5)
+
+    acoords = params.atom_coords
+    Natoms = len(acoords)
+    for ia in range(Natoms):
+        xi = acoords[ia][0]*au2A
+        yi = acoords[ia][1]*au2A
+        for ja in range(ia+1,Natoms):
+            xj = acoords[ja][0]*au2A
+            yj = acoords[ja][1]*au2A
+            
+            r = np.sqrt((xj-xi)**2 + (yj-yi)**2)
+
+            if r<1.5:
+                axr.plot([xi,xj],[yi,yj],color='black')
+
+    #for ia in params.atom_coords:
+    #    axr.plot(ia[0]*au2A,ia[1]*au2A,'yo')
 
     axr.set_xlim([params.xmin*au2A,params.xmax*au2A])
     axr.set_ylim([params.ymin*au2A,params.ymax*au2A])   
