@@ -200,8 +200,6 @@ template<typename func_t>
 double integrate(const size_t& Nx, const size_t& Ny, func_t arr_f,
                  const double& xmin=0., const double& xmax=1.,
                  const double& ymin=0., const double& ymax=1.){
-    double res=0.;
-
 	std::vector<double> x_x;
     std::vector<double> w_x;
     load_table(Nx,x_x,w_x);
@@ -213,21 +211,33 @@ double integrate(const size_t& Nx, const size_t& Ny, func_t arr_f,
     int Nhalf_x=x_x.size();
     int Nhalf_y=x_y.size();
 
-    for(size_t ix=0; ix<Nhalf_x; ix++){
-        size_t ixf=Nhalf_x+ix;
-        size_t ixb=Nhalf_x-ix-1;
+	double* tmp=new double[Nhalf_x*Nhalf_y];
 
+	#pragma omp parallel for collapse(2)
+    for(size_t ix=0; ix<Nhalf_x; ix++){
         for(size_t iy=0; iy<Nhalf_y; iy++){
+        	size_t ixf=Nhalf_x+ix;
+        	size_t ixb=Nhalf_x-ix-1;
+
             size_t iyf=Nhalf_y+iy;
             size_t iyb=Nhalf_y-iy-1;
 
-            res+=w_x[ix]*w_y[iy]*(
+			size_t indx=ix*Nhalf_y+iy;
+
+            tmp[indx]=w_x[ix]*w_y[iy]*(
                     arr_f(ixf,iyf)+arr_f(ixf,iyb)
                    +arr_f(ixb,iyf)+arr_f(ixb,iyb)
             );                   
         }
     }
     
+	double res=0.;
+	for(size_t indx=0; indx<(Nhalf_x*Nhalf_y); indx++){
+		res+=tmp[indx];
+	}
+
+	delete [] tmp;
+
 	double A=0.5*(xmax-xmin);
 	double C=0.5*(ymax-ymin);
 

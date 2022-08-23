@@ -60,11 +60,11 @@ def plot_tstep(params,it,fig_fname=None):
 
         #plot_rspace(params,it,rho_data,fig_fname)
 
-        #plot_2D(params,it,rho_data,fig_fname)
+        plot_2D(params,it,rho_data,fig_fname)
         #plot_3D(params,it,rho_data,fig_fname)
 
-    if dens_f_exists and rho_f_exists:
-        plot_all(params,it,dens_cc,rho_data,fig_fname)
+    #if dens_f_exists and rho_f_exists:
+    #    plot_all(params,it,dens_cc,rho_data,fig_fname)
 
     return
 

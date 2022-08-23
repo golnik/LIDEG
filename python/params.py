@@ -44,10 +44,10 @@ class InputParams:
         self.Nz = int(config['rgrid']['Nz'])
 
         #read kgrid
-        self.dkx = float(config['kgrid']['dkx'])*au2nm
+        #self.dkx = float(config['kgrid']['dkx'])*au2nm
         self.Nkx = int(config['kgrid']['Nkx'])
 
-        self.dky = float(config['kgrid']['dky'])*au2nm
+        #self.dky = float(config['kgrid']['dky'])*au2nm
         self.Nky = int(config['kgrid']['Nky'])
 
         self.Nt = int(config['propagator']['Nt'])

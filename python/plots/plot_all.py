@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib import colors
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 plt.rcParams.update({'font.size': 16})
 plt.rcParams["mathtext.fontset"] = "cm"
@@ -61,15 +62,24 @@ def plot_all(params,it,dens_data,rho_data,fig_fname):
             else:
                 rho_m[ix,iy] = rho
 
-    #ZZ = max(abs(rho_data_xy.min()),abs(rho_data_xy.max()))
-    ZZ = 90.0
-    levels_p = np.linspace(0,ZZ,151)
-    levels_n = np.linspace(-ZZ,0,151)
-    axr.contourf(params.xgrid*au2A,params.ygrid*au2A,rho_p,levels=levels_p,cmap=cm.Reds)
-    axr.contourf(params.xgrid*au2A,params.ygrid*au2A,rho_m,levels=levels_n,cmap=cm.Blues)
+    ZZ = max(abs(rho_data_xy.min()),abs(rho_data_xy.max()))
+    #ZZ = 90.0
+
+    #levels_p = np.linspace(0,ZZ,151)
+    #levels_n = np.linspace(-ZZ,0,151)
+    #axr.contourf(params.xgrid*au2A,params.ygrid*au2A,rho_p,levels=levels_p,cmap=cm.Reds)
+    #axr.contourf(params.xgrid*au2A,params.ygrid*au2A,rho_m,levels=levels_n,cmap=cm.Blues)
+    
+    levels = np.linspace(-ZZ,ZZ,151)
+    cr = axr.contourf(params.xgrid*au2A,params.ygrid*au2A,rho_data_xy,levels=levels,cmap=cm.seismic)
+
     axr.set_box_aspect(1)
     axr.set_xlabel(r"$x [\AA]$",labelpad=10)
     axr.set_ylabel(r"$y [\AA]$",labelpad=5)
+
+    divider = make_axes_locatable(axr)
+    cax = divider.append_axes('right', size='5%', pad=0.05)
+    fig.colorbar(cr, cax=cax, orientation='vertical')
 
     acoords = params.atom_coords
     Natoms = len(acoords)

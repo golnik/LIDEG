@@ -134,7 +134,7 @@ int main(int argc, char** argv){
                         double y=ygrid[iy];
                         double z=zgrid[iz];
 
-                        for(size_t im=0; im<Nmulti; im++)
+                        /*for(size_t im=0; im<Nmulti; im++)
                             mres[im]=0.;
 
                         #pragma omp parallel for
@@ -209,7 +209,45 @@ int main(int argc, char** argv){
 
                         for(size_t im=0; im<Nmulti; im++){
                             res(ix,iy,iz)+=mres[im];
-                        }
+                        }*/
+
+                        res(ix,iy,iz)+=integrate(params.Nkx,params.Nky,
+                            [params,
+                            dens_vv,dens_cc,dens_cv_re,dens_cv_im,
+                            Ktype,SBZ,
+                            &wfs_g,
+                            x,y,z](const size_t& ikx_K, const size_t& iky_K){
+                                size_t ikx=0;
+                                size_t iky=0;
+                                if(Ktype==0){//normal indices for K point
+                                    ikx=ikx_K;
+                                    iky=iky_K;
+                                }
+                                else{//inverse indices for K' point
+                                    ikx=ikx_K;
+                                    iky=params.Nky-iky_K-1;
+                                }
+
+                                complex_t dens_cv=dens_cv_re(ikx,iky)+I*dens_cv_im(ikx,iky);
+
+                                complex_t psip=wfs_g.psip(x,y,z,ikx_K,iky_K);
+                                complex_t psim=wfs_g.psim(x,y,z,ikx_K,iky_K);
+
+                                double rho_vv=std::norm(psip);
+                                double rho_cc=std::norm(psim);
+                                complex_t rho_vc=std::conj(psip)*psim;
+
+                                double rho_t=dens_vv(ikx,iky)*rho_vv
+                                            +dens_cc(ikx,iky)*rho_cc
+                                            +2.*std::real(dens_cv*rho_vc);
+
+                                double res=2.*3.*(2./SBZ)*(rho_t-rho_vv);
+
+                                return res;
+                            },
+                            kxmin,kxmax,
+                            kymin,kymax                    
+                        );
                     }//z loop
                 }//y loop        
             }//x loop
