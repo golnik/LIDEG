@@ -9,6 +9,8 @@
 #include <boost/numeric/ublas/matrix.hpp>
 using namespace boost::numeric::ublas;
 
+#define THRS 1.e-9
+
 class GrapheneLayer{
     typedef vector<double> vector_t;
 public:
@@ -127,7 +129,14 @@ public:
 
     double phi_2pz(const double& rx, const double& ry, const double& rz) const{
         double r=sqrt(rx*rx+ry*ry+rz*rz);
-        double cos_theta=rz/r;
+        double cos_theta=0.;
+        
+        if(r>=THRS){
+            cos_theta=rz/r;
+        }
+        else{
+            cos_theta=1.;
+        }
 
         return _Z*r*cos_theta*exp(-0.5*_Z*r);
 

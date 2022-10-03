@@ -17,6 +17,10 @@ using namespace boost::numeric::ublas;
 
 typedef matrix<double> matrix_t;
 
+#define Nx_max 64
+#define Ny_max 64
+#define Nz_max 64
+
 int main(int argc, char** argv){
     try{
         std::string fname=argv[1];
@@ -34,6 +38,48 @@ int main(int argc, char** argv){
         //prepare xyz grids
         auto xgrid=create_grid(params.xmin,params.xmax,params.Nx);
         auto ygrid=create_grid(params.ymin,params.ymax,params.Ny);
+
+        vector<double> a1(2);
+        a1(0)=params.a/2.*sqrt(3.);
+        a1(1)=params.a/2.;
+        a1/=(params.Nx-1);
+
+        vector<double> a2(2);
+        a2(0)=params.a/2.*sqrt(3.);
+        a2(1)=-params.a/2.;
+        a2/=(params.Ny-1);
+
+        vector<double> o(2);
+        o(0)=0.;
+        o(1)=0.;
+
+        //write grids to file
+        std::ofstream grid_out(params.rgfile_fname);
+        grid_out<<params.Nx*params.Ny<<std::endl;
+
+        grid_out<<std::scientific;
+        grid_out<<std::setprecision(8);
+
+        MultiArray<std::pair<double,double>,Nx_max,Ny_max> xygrid;
+        for(size_t ix=0; ix<params.Nx; ix++){
+            for(size_t iy=0; iy<params.Ny; iy++){
+                auto o=ix*a1+iy*a2;
+                
+                //double x=xgrid[ix];
+                //double y=ygrid[iy];
+                double x=o(0);
+                double y=o(1);
+
+                xygrid(ix,iy)=std::make_pair(x,y);
+                grid_out<<std::setw(20)<<x;
+                grid_out<<std::setw(20)<<y<<std::endl;
+
+                //o+=a2;
+            }
+            //o+=a1;
+        }
+        grid_out.close();
+
         auto zgrid=create_grid(params.zmin,params.zmax,params.Nz);
 
         //create graphene model
@@ -76,7 +122,7 @@ int main(int argc, char** argv){
         matrix_t dens_cv_im=read_2D_from_file<matrix_t>(dens_t_fname,3,params.Nkx,params.Nky);
 
         //array for real space data
-        MultiArray<double,64,64,64> res;
+        MultiArray<double,Nx_max,Ny_max,Nz_max> res;
         for(size_t ix=0; ix<params.Nx; ix++){
             for(size_t iy=0; iy<params.Ny; iy++){
                 for(size_t iz=0; iz<params.Nz; iz++){
@@ -130,8 +176,10 @@ int main(int argc, char** argv){
 
                 for(size_t iy=0; iy<params.Ny; iy++){
                     for(size_t iz=0; iz<params.Nz; iz++){
-                        double x=xgrid[ix];
-                        double y=ygrid[iy];
+                        //double x=xgrid[ix];
+                        //double y=ygrid[iy];
+                        double x=xygrid(ix,iy).first;
+                        double y=xygrid(ix,iy).second;
                         double z=zgrid[iz];
 
                         /*for(size_t im=0; im<Nmulti; im++)

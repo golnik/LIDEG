@@ -53,7 +53,8 @@ class InputParams:
         self.Nt = int(config['propagator']['Nt'])
 
         self.outdir         = config['output']['outdir']
-        self.gfile_fname    = os.path.join(self.outdir,config['output']['gfile'])
+        self.kgfile_fname   = os.path.join(self.outdir,config['output']['kgfile'])
+        self.rgfile_fname   = os.path.join(self.outdir,config['output']['rgfile'])
         self.tfile_fname    = os.path.join(self.outdir,config['output']['tfile'])
         self.rhofile_fname  = os.path.join(self.outdir,config['output']['rhofile'])
         self.densfile_fname = os.path.join(self.outdir,config['output']['densfile'])
@@ -80,12 +81,31 @@ class InputParams:
         #create grids
         self.tgrid   = np.linspace(self.tmin,self.tmax,self.Nt)
 
-        self.xgrid = np.linspace(self.xmin,self.xmax,self.Nx)
-        self.ygrid = np.linspace(self.ymin,self.ymax,self.Ny)
+        #we read rgrid from file
+        with open(self.rgfile_fname,'r') as file:
+            rgrid_data = file.readlines()
+        Nxy = int(rgrid_data[0])
+
+        self.xgrid = []
+        self.ygrid = []
+
+        for iline in range(Nxy):
+            data = rgrid_data[iline+1].split()
+            x = float(data[0])
+            y = float(data[1])
+
+            self.xgrid.append(x)
+            self.ygrid.append(y)
+
+        self.xgrid = np.asarray(self.xgrid)
+        self.ygrid = np.asarray(self.ygrid)
+
+        #self.xgrid = np.linspace(self.xmin,self.xmax,self.Nx)
+        #self.ygrid = np.linspace(self.ymin,self.ymax,self.Ny)
         self.zgrid = np.linspace(self.zmin,self.zmax,self.Nz)
 
         #we read kgrid from file
-        with open(self.gfile_fname,'r') as file:
+        with open(self.kgfile_fname,'r') as file:
             kgrid_data = file.readlines()
 
         self.kx_grid = np.float_(kgrid_data[1].split())

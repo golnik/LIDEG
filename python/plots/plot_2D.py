@@ -31,7 +31,35 @@ def plot_2D(params,it,rho_data,fig_fname):
     ZZ = 6.e-3*0.21
     levels = np.linspace(-ZZ,ZZ,151)
 
-    cf = ax.contourf(params.xgrid*au2A,params.ygrid*au2A,rho_data_xy,levels=levels,cmap=cm.seismic)
+    rho_data_xy = rho_data_xy.flatten(order='C')
+    mask = np.isfinite(rho_data_xy)
+
+    charge = sum(rho_data_xy)
+
+    print(charge)
+
+    #bravais vectors
+    a1 = [params.a/2.*np.sqrt(3.), params.a/2.]
+    a2 = [params.a/2.*np.sqrt(3.),-params.a/2.]
+    a1 = np.asarray(a1)
+    a2 = np.asarray(a2)
+
+    rho_all = []
+    xgrid_all = []
+    ygrid_all = []
+
+    for icx in range(-params.Nclx,params.Nclx+1):
+        for icy in range(-params.Ncly,params.Ncly+1):
+            ofset = float(icx) * a1 + float(icy) * a2
+            xgrid = (params.xgrid[mask] + ofset[0])*au2A
+            ygrid = (params.ygrid[mask] + ofset[1])*au2A
+
+            xgrid_all.extend(xgrid)
+            ygrid_all.extend(ygrid)
+            rho_all.extend(rho_data_xy[mask])
+
+    cf = ax.tricontourf(xgrid_all,ygrid_all,rho_all,levels=levels,cmap=cm.seismic)
+
     ax.set_box_aspect(1)
     ax.set_xlabel(r"$x [\AA]$",labelpad=10)
     ax.set_ylabel(r"$y [\AA]$",labelpad=5)

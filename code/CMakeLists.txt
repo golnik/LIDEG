@@ -21,9 +21,11 @@ if(Python_FOUND)
     include_directories(${Python_INCLUDE_DIRS})
 endif()
 
-include_directories("/home/ngolubev/Packages/libs/boost/1.79.0/boost_1_79_0")
+#include_directories("/home/ngolubev/Packages/libs/boost/1.79.0/boost_1_79_0")
+#link_directories("/home/ngolubev/Packages/libs/boost/1.79.0/boost_1_79_0/stage/lib")
 
-link_directories("/home/ngolubev/Packages/libs/boost/1.79.0/boost_1_79_0/stage/lib")
+FIND_PACKAGE(Boost 1.79 REQUIRED)
+INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIR})
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 

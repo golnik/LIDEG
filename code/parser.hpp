@@ -43,6 +43,8 @@ struct Parameters{
     double zmax;
     size_t Nz;        
 
+    int rgrid_type;
+
     double E0;
     std::string field_fname;
 
@@ -53,7 +55,8 @@ struct Parameters{
     double Z;
 
     std::string outdir;
-    std::string gfile_fname;
+    std::string kgfile_fname;
+    std::string rgfile_fname;
     std::string tfile_fname;
     std::string densfile_fname;
     std::string rhofile_fname;
@@ -154,6 +157,18 @@ public:
         _params.zmax=std::stod(ini.get("rgrid").get("zmax"))/au2A;
         _params.Nz=std::stoi(ini.get("rgrid").get("Nz"));
 
+        std::string rgrid_type_str=ini.get("rgrid").get("type");
+        trim(rgrid_type_str);
+        if(rgrid_type_str=="regular"){
+            _params.rgrid_type=regular;
+        }
+        else if(rgrid_type_str=="ucell"){
+            _params.rgrid_type=ucell;
+        }
+        else{
+            throw std::string("Wrong rgrid_type!");
+        }
+
         //parse field file
         _params.E0=std::stod(ini.get("field").get("E0"))/au2Vnm;
         _params.field_fname=ini.get("field").get("fname");
@@ -177,8 +192,11 @@ public:
         //parse output
         _params.outdir=ini.get("output").get("outdir");
 
-        fs::path gfile_path(_params.outdir);
-        _params.gfile_fname=(gfile_path/=ini.get("output").get("gfile")).c_str();
+        fs::path kgfile_path(_params.outdir);
+        _params.kgfile_fname=(kgfile_path/=ini.get("output").get("kgfile")).c_str();
+
+        fs::path rgfile_path(_params.outdir);
+        _params.rgfile_fname=(rgfile_path/=ini.get("output").get("rgfile")).c_str();
 
         fs::path tfile_path(_params.outdir);
         _params.tfile_fname=(tfile_path/=ini.get("output").get("tfile")).c_str();

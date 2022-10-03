@@ -24,7 +24,7 @@ const complex_t I=complex_t(0.,1.);
 #include <cctype>
 #include <locale>
 
-enum kgrid_types {regular=0, quad};
+enum kgrid_types {regular=0, quad, ucell};
 
 // trim from start (in place)
 static inline void ltrim(std::string &s) {

@@ -98,7 +98,7 @@ int main(int argc, char** argv){
         auto ky_grid=create_grid(Ky-params.dky,Ky+params.dky,params.Nky,params.kgrid_type);
 
         //write grids to file
-        std::ofstream grid_out(params.gfile_fname);
+        std::ofstream grid_out(params.kgfile_fname);
         //write kx grid
         grid_out<<kx_grid.size()<<std::endl;
         for(size_t ikx=0; ikx<params.Nkx; ikx++)
