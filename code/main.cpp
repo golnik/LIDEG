@@ -13,6 +13,7 @@
 #include "model1/graphene.hpp"
 #include "model1/WFs.hpp"
 #include "model2/graphene2.hpp"
+#include "Nlayer/nlayer.hpp"
 
 #include "uBLASBoostOdeint.hpp"
 
@@ -82,6 +83,19 @@ int main(int argc, char** argv){
         GrapheneModel2 gm2(params.a,params.e2p,params.gamma,params.s,
                            Efield_x,Efield_y,
                            Afield_x,Afield_y);
+
+        //create N-layer graphene model
+        /*HexagonalTBModel* tb=new HexagonalTBModel(params.a);
+        
+        double eps[]={params.e2p,params.e2p};
+        double g[]={params.gamma,0.39/au2eV};
+        double s[]={params.s,0.0};
+        size_t Nlayers=1;
+        NGraphene ngm(tb,Nlayers,eps,g,s,
+                      Efield_x,Efield_y);
+        */
+       
+        size_t Nstates=2*Nlayers;
 
         //create K and Kp points
         std::vector<double> Dirac_Kx;
@@ -188,6 +202,7 @@ int main(int argc, char** argv){
 
                         gm.propagate(rho,drhodt,t,kxt,kyt);
                         //gm2.propagate(rho,drhodt,t,kx0,ky0);
+                        //ngm.propagate(rho,drhodt,t,kxt,kyt);
                         return;
                     };
 
