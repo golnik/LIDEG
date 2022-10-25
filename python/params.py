@@ -28,6 +28,7 @@ class InputParams:
         self.Nt = int(config['propagator']['Nt'])
 
         #read rgrid
+        self.rgrid_type = config['rgrid']['type']
         self.Nclx = int(config['rgrid']['Nclx'])
         self.Ncly = int(config['rgrid']['Ncly'])
 
@@ -61,52 +62,55 @@ class InputParams:
         self.afile_fname    = os.path.join(self.outdir,config['output']['afile'])
 
         #create arrays of atom coordinates
-        with open(self.afile_fname,'r') as file:
-            self.atom_coords = []
+        if os.path.isfile(self.afile_fname):
+            with open(self.afile_fname,'r') as file:
+                self.atom_coords = []
 
-            Natoms = int(file.readline())
-            for ia in range(Natoms):
-                data = file.readline().split()
+                Natoms = int(file.readline())
+                for ia in range(Natoms):
+                    data = file.readline().split()
 
-                #A1 atom
-                x = float(data[0])
-                y = float(data[1])
-                self.atom_coords.append([x,y])
+                    #A1 atom
+                    x = float(data[0])
+                    y = float(data[1])
+                    self.atom_coords.append([x,y])
 
-                #A2 atom
-                x = float(data[2])
-                y = float(data[3])
-                self.atom_coords.append([x,y])
+                    #A2 atom
+                    x = float(data[2])
+                    y = float(data[3])
+                    self.atom_coords.append([x,y])
 
         #create grids
         self.tgrid   = np.linspace(self.tmin,self.tmax,self.Nt)
 
         #we read rgrid from file
-        with open(self.rgfile_fname,'r') as file:
-            rgrid_data = file.readlines()
-        Nxy = int(rgrid_data[0])
+        if os.path.isfile(self.rgfile_fname):
+            with open(self.rgfile_fname,'r') as file:
+                rgrid_data = file.readlines()
+            Nxy = int(rgrid_data[0])
 
-        self.xgrid = []
-        self.ygrid = []
+            self.xgrid = []
+            self.ygrid = []
 
-        for iline in range(Nxy):
-            data = rgrid_data[iline+1].split()
-            x = float(data[0])
-            y = float(data[1])
+            for iline in range(Nxy):
+                data = rgrid_data[iline+1].split()
+                x = float(data[0])
+                y = float(data[1])
 
-            self.xgrid.append(x)
-            self.ygrid.append(y)
+                self.xgrid.append(x)
+                self.ygrid.append(y)
 
-        self.xgrid = np.asarray(self.xgrid)
-        self.ygrid = np.asarray(self.ygrid)
+            self.xgrid = np.asarray(self.xgrid)
+            self.ygrid = np.asarray(self.ygrid)
 
-        #self.xgrid = np.linspace(self.xmin,self.xmax,self.Nx)
-        #self.ygrid = np.linspace(self.ymin,self.ymax,self.Ny)
-        self.zgrid = np.linspace(self.zmin,self.zmax,self.Nz)
+            #self.xgrid = np.linspace(self.xmin,self.xmax,self.Nx)
+            #self.ygrid = np.linspace(self.ymin,self.ymax,self.Ny)
+            self.zgrid = np.linspace(self.zmin,self.zmax,self.Nz)
 
         #we read kgrid from file
-        with open(self.kgfile_fname,'r') as file:
-            kgrid_data = file.readlines()
+        if os.path.isfile(self.kgfile_fname):
+            with open(self.kgfile_fname,'r') as file:
+                kgrid_data = file.readlines()
 
-        self.kx_grid = np.float_(kgrid_data[1].split())
-        self.ky_grid = np.float_(kgrid_data[3].split())
+            self.kx_grid = np.float_(kgrid_data[1].split())
+            self.ky_grid = np.float_(kgrid_data[3].split())

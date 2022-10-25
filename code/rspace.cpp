@@ -36,22 +36,32 @@ int main(int argc, char** argv){
         ExternalField* E0=nullptr;
 
         //prepare xyz grids
-        auto xgrid=create_grid(params.xmin,params.xmax,params.Nx);
-        auto ygrid=create_grid(params.ymin,params.ymax,params.Ny);
-
         vector<double> a1(2);
-        a1(0)=params.a/2.*sqrt(3.);
-        a1(1)=params.a/2.;
-        a1/=(params.Nx-1);
-
         vector<double> a2(2);
-        a2(0)=params.a/2.*sqrt(3.);
-        a2(1)=-params.a/2.;
-        a2/=(params.Ny-1);
+        vector<double> origin(2);
 
-        vector<double> o(2);
-        o(0)=0.;
-        o(1)=0.;
+        if(params.rgrid_type==regular){
+            origin(0)=params.xmin;
+            origin(1)=params.ymin;
+
+            a1(0)=(params.xmax-params.xmin)/(params.Nx-1);
+            a1(1)=0.;
+
+            a2(0)=0.;
+            a2(1)=(params.ymax-params.ymin)/(params.Ny-1);
+        }
+        else if(params.rgrid_type==ucell){
+            origin(0)=-(1./sqrt(3.))*params.a;
+            origin(1)=0.0;
+
+            a1(0)=params.a/2.*sqrt(3.);
+            a1(1)=params.a/2.;
+            a1/=(params.Nx-1);
+            
+            a2(0)=params.a/2.*sqrt(3.);
+            a2(1)=-params.a/2.;
+            a2/=(params.Ny-1);
+        }
 
         //write grids to file
         std::ofstream grid_out(params.rgfile_fname);
@@ -63,7 +73,7 @@ int main(int argc, char** argv){
         MultiArray<std::pair<double,double>,Nx_max,Ny_max> xygrid;
         for(size_t ix=0; ix<params.Nx; ix++){
             for(size_t iy=0; iy<params.Ny; iy++){
-                auto o=ix*a1+iy*a2;
+                auto o=origin+ix*a1+iy*a2;
                 
                 //double x=xgrid[ix];
                 //double y=ygrid[iy];
@@ -161,7 +171,7 @@ int main(int argc, char** argv){
             auto ky_grid=create_grid(kymin,kymax,params.Nky,params.kgrid_type);
 
             //create WFs model
-            //WFs wfs(&gm,&gl,params.Z);
+            WFs wfs(&gm,&gl,params.Z);
             WFs_grid wfs_g(&gm,&gl,params.Z,kx_grid,ky_grid);
 
             double dkx=kx_grid[1]-kx_grid[0];
@@ -263,7 +273,8 @@ int main(int argc, char** argv){
                             [params,
                             dens_vv,dens_cc,dens_cv_re,dens_cv_im,
                             Ktype,SBZ,
-                            &wfs_g,
+                            &wfs,&wfs_g,
+                            kx_grid,ky_grid,
                             x,y,z](const size_t& ikx_K, const size_t& iky_K){
                                 size_t ikx=0;
                                 size_t iky=0;
@@ -281,15 +292,20 @@ int main(int argc, char** argv){
                                 complex_t psip=wfs_g.psip(x,y,z,ikx_K,iky_K);
                                 complex_t psim=wfs_g.psim(x,y,z,ikx_K,iky_K);
 
-                                double rho_vv=std::norm(psip);
-                                double rho_cc=std::norm(psim);
+                                double rho_vv=pow(std::abs(psip),2.);
+                                double rho_cc=pow(std::abs(psim),2.);
                                 complex_t rho_vc=std::conj(psip)*psim;
 
                                 double rho_t=dens_vv(ikx,iky)*rho_vv
-                                            +dens_cc(ikx,iky)*rho_cc
-                                            +2.*std::real(dens_cv*rho_vc);
+                                            +dens_cc(ikx,iky)*rho_cc;
+                                            //+2.*std::real(dens_cv*rho_vc);
 
-                                double res=2.*3.*(2./SBZ)*(rho_t-rho_vv);
+                                //double res=2.*3.*(2./SBZ)*(rho_t-rho_vv);
+
+                                double res=rho_cc-rho_vv;
+
+                                //double res=std::abs(wfs_g.psip(x,y,z,ikx_K,iky_K))
+                                //          -std::abs(wfs.psip(x,y,z,kx_grid[ikx],ky_grid[iky]));
 
                                 return res;
                             },
@@ -308,6 +324,7 @@ int main(int argc, char** argv){
 
         std::cout<<"Real space density will be written to: "<<rho_t_fname<<std::endl;
 
+        double sum=0.;
         for(size_t ix=0; ix<params.Nx; ix++){
             for(size_t iy=0; iy<params.Ny; iy++){
                 double res_xy=0.;
@@ -318,11 +335,15 @@ int main(int argc, char** argv){
 
                     //res_xy+=res(ix,iy,iz);
                     rho_t_out<<res(ix,iy,iz)<<std::endl;
+
+                    sum+=res(ix,iy,iz);
                 }
                 //rho_t_out<<res_xy<<std::endl;
             }
         }
         rho_t_out.close();
+
+        std::cout<<"Sum: "<<sum<<std::endl;
 
     }catch(std::string er){
         std::cout<<' '<<er<<std::endl;

@@ -27,38 +27,43 @@ def plot_2D(params,it,rho_data,fig_fname):
     zmin = rho_data_xy.min()
     zmax = rho_data_xy.max()
 
-    #ZZ = max(abs(zmin),abs(zmax))
-    ZZ = 6.e-3*0.21
+    ZZ = max(abs(zmin),abs(zmax))
+    #ZZ = 6.e-3*0.21
     levels = np.linspace(-ZZ,ZZ,151)
 
-    rho_data_xy = rho_data_xy.flatten(order='C')
-    mask = np.isfinite(rho_data_xy)
+    if params.rgrid_type == "regular":
+        xgrid = np.linspace(params.xmin,params.xmax,params.Nx)
+        ygrid = np.linspace(params.ymin,params.ymax,params.Ny)
+        ax.contourf(xgrid*au2A,ygrid*au2A,rho_data_xy,levels=levels,cmap=cm.seismic)
+    elif params.rgrid_type == "ucell":
+        rho_data_xy = rho_data_xy.flatten(order='C')
+        mask = np.isfinite(rho_data_xy)
 
-    charge = sum(rho_data_xy)
+        #bravais vectors
+        a1 = [params.a/2.*np.sqrt(3.), params.a/2.]
+        a2 = [params.a/2.*np.sqrt(3.),-params.a/2.]
+        a1 = np.asarray(a1)
+        a2 = np.asarray(a2)
 
-    print(charge)
+        rho_all = []
+        xgrid_all = []
+        ygrid_all = []
 
-    #bravais vectors
-    a1 = [params.a/2.*np.sqrt(3.), params.a/2.]
-    a2 = [params.a/2.*np.sqrt(3.),-params.a/2.]
-    a1 = np.asarray(a1)
-    a2 = np.asarray(a2)
+        #define the required number of unit cells
+        Nclx = [2,2]
+        Ncly = [2,1]
 
-    rho_all = []
-    xgrid_all = []
-    ygrid_all = []
+        for icx in range(-Nclx[0],Nclx[1]+1):
+            for icy in range(-Ncly[0],Ncly[1]+1):
+                ofset = float(icx) * a1 + float(icy) * a2
+                xgrid = (params.xgrid[mask] + ofset[0])*au2A
+                ygrid = (params.ygrid[mask] + ofset[1])*au2A
 
-    for icx in range(-params.Nclx,params.Nclx+1):
-        for icy in range(-params.Ncly,params.Ncly+1):
-            ofset = float(icx) * a1 + float(icy) * a2
-            xgrid = (params.xgrid[mask] + ofset[0])*au2A
-            ygrid = (params.ygrid[mask] + ofset[1])*au2A
+                xgrid_all.extend(xgrid)
+                ygrid_all.extend(ygrid)
+                rho_all.extend(rho_data_xy[mask])
 
-            xgrid_all.extend(xgrid)
-            ygrid_all.extend(ygrid)
-            rho_all.extend(rho_data_xy[mask])
-
-    cf = ax.tricontourf(xgrid_all,ygrid_all,rho_all,levels=levels,cmap=cm.seismic)
+        cf = ax.tricontourf(xgrid_all,ygrid_all,rho_all,levels=levels,cmap=cm.seismic)
 
     ax.set_box_aspect(1)
     ax.set_xlabel(r"$x [\AA]$",labelpad=10)
@@ -67,9 +72,9 @@ def plot_2D(params,it,rho_data,fig_fname):
     ax.set_xlim([params.xmin*au2A,params.xmax*au2A])
     ax.set_ylim([params.ymin*au2A,params.ymax*au2A])
 
-    divider = make_axes_locatable(ax)
-    cax = divider.append_axes('right', size='5%', pad=0.05)
-    fig.colorbar(cf, cax=cax, orientation='vertical')
+    #divider = make_axes_locatable(ax)
+    #cax = divider.append_axes('right', size='5%', pad=0.05)
+    #fig.colorbar(cf, cax=cax, orientation='vertical')
 
     acoords = params.atom_coords
     Natoms = len(acoords)

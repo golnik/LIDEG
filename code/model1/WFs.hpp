@@ -46,11 +46,11 @@ public:
                 double A1_x=posA1[0];
                 double A1_y=posA1[1];
 
-                double R=sqrt(pow(A1_x-R0x,2.)+pow(A1_y-R0y,2.));
-                if(R<=Rmax){
+                //double R=sqrt(pow(A1_x-R0x,2.)+pow(A1_y-R0y,2.));
+                //if(R<=Rmax){
                     _A1.push_back(posA1);
                     _A2.push_back(posA2);
-                }
+                //}
             }
         }
 
