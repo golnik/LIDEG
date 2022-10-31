@@ -7,6 +7,7 @@
 #include "mini/ini.h"
 
 #include "utils/utils.hpp"
+#include "utils/grid.hpp"
 #include "parser.hpp"
 #include "external_field.hpp"
 #include "model1/graphene.hpp"
@@ -89,25 +90,61 @@ int main(int argc, char** argv){
 
         gm.get_Dirac_points(Dirac_Kx,Dirac_Ky,Dirac_type);
 
+        //grid
+        Grid2D* kxygrid;
+
         //we simulate dynamics at K point only
         double Kx=Dirac_Kx[0];
         double Ky=Dirac_Ky[0];
 
         //create k grids
-        auto kx_grid=create_grid(Kx-params.dkx,Kx+params.dkx,params.Nkx,params.kgrid_type);
-        auto ky_grid=create_grid(Ky-params.dky,Ky+params.dky,params.Nky,params.kgrid_type);
+
+        Grid1D* kx_grid;
+        Grid1D* ky_grid;
+
+        kx_grid=new RegularGrid1D(Kx-params.dkx,Kx+params.dkx,params.Nkx);
+        ky_grid=new RegularGrid1D(Ky-params.dky,Ky+params.dky,params.Nky);
+
+        //kxygrid=new RegularGrid2D(kx_grid,ky_grid);
+
+        double Ox=0.;
+        double Oy=0.;
+        double b1x=2.*M_PI/(sqrt(3.)*params.a);
+        double b1y=2.*M_PI/(params.a);
+        double b2x=b1x;
+        double b2y=-b1y;
+
+        kxygrid=new UCellGrid2D(Ox,Oy,b1x,b1y,params.Nkx,b2x,b2y,params.Nky);
+
+        //auto kx_grid=create_grid(Kx-params.dkx,Kx+params.dkx,params.Nkx,params.kgrid_type);
+        //auto ky_grid=create_grid(Ky-params.dky,Ky+params.dky,params.Nky,params.kgrid_type);
+
+        //write grids to file
+        /*std::ofstream grid_out(params.kgfile_fname);
+        //write kx grid
+        grid_out<<kx_grid->size()<<std::endl;
+        for(size_t ikx=0; ikx<params.Nkx; ikx++)
+            grid_out<<(*kx_grid)[ikx]-Kx<<" ";
+        grid_out<<std::endl;
+        grid_out<<ky_grid->size()<<std::endl;
+        for(size_t iky=0; iky<params.Nky; iky++)
+            grid_out<<(*ky_grid)[iky]-Ky<<" ";
+        grid_out<<std::endl;  
+        grid_out.close();*/
 
         //write grids to file
         std::ofstream grid_out(params.kgfile_fname);
-        //write kx grid
-        grid_out<<kx_grid.size()<<std::endl;
-        for(size_t ikx=0; ikx<params.Nkx; ikx++)
-            grid_out<<kx_grid[ikx]-Kx<<" ";
-        grid_out<<std::endl;
-        grid_out<<ky_grid.size()<<std::endl;
-        for(size_t iky=0; iky<params.Nky; iky++)
-            grid_out<<ky_grid[iky]-Ky<<" ";
-        grid_out<<std::endl;  
+        grid_out<<params.Nkx*params.Nky<<std::endl;
+
+        grid_out<<std::scientific;
+        grid_out<<std::setprecision(8);
+
+        for(size_t ikx=0; ikx<params.Nkx; ikx++){
+            for(size_t iky=0; iky<params.Nky; iky++){
+                grid_out<<std::setw(20)<<(*kxygrid)(ikx,iky)[0];
+                grid_out<<std::setw(20)<<(*kxygrid)(ikx,iky)[1]<<std::endl;
+            }
+        }
         grid_out.close();
 
         //prepare initial densities
@@ -139,8 +176,11 @@ int main(int argc, char** argv){
             #pragma omp parallel for
             for(size_t ikx=0; ikx<params.Nkx; ikx++){
                 for(size_t iky=0; iky<params.Nky; iky++){
-                    double kx0=kx_grid[ikx];
-                    double ky0=ky_grid[iky];
+                    //double kx0=(*kx_grid)[ikx];
+                    //double ky0=(*ky_grid)[iky];
+
+                    double kx0=(*kxygrid)(ikx,iky)[0];
+                    double ky0=(*kxygrid)(ikx,iky)[1];
 
                     auto system=[gm,gm2,kx0,ky0,Afield_x,Afield_y](const state_type& rho, state_type& drhodt, const double t){
                         double kxt=kx0+(*Afield_x)(t);

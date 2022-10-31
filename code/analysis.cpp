@@ -56,13 +56,30 @@ int main(int argc, char** argv){
         GrapheneModel gm(params.a,params.e2p,params.gamma,params.s,
                          Efield_x,Efield_y);
 
-        //create Dirac points
-        std::vector<double> Dirac_Kx;
-        std::vector<double> Dirac_Ky;
-        std::vector<int> Dirac_type;
+        //create kgrid
+        double Okx=0.;
+        double Oky=0.;
+        double b1x=2.*M_PI/(sqrt(3.)*params.a);
+        double b1y=2.*M_PI/(params.a);
+        double b2x=b1x;
+        double b2y=-b1y;
 
-        gm.get_Dirac_points(Dirac_Kx,Dirac_Ky,Dirac_type);
-        size_t nK=Dirac_Kx.size();
+        /*double Okx=0.;
+        double Oky=M_PI;
+        double b1x=M_PI-Okx;
+        double b1y=2.*M_PI-Oky;
+        double b2x=M_PI-Okx;
+        double b2y=0.-Oky;*/
+
+        Grid2D* kxygrid=new UCellGrid2D(Okx,Oky,b1x,b1y,params.Nkx,b2x,b2y,params.Nky);
+
+        //create Dirac points
+        //std::vector<double> Dirac_Kx;
+        //std::vector<double> Dirac_Ky;
+        //std::vector<int> Dirac_type;
+
+        //gm.get_Dirac_points(Dirac_Kx,Dirac_Ky,Dirac_type);
+        //size_t nK=Dirac_Kx.size();
 
         //prepare output streams
         std::ofstream tfile_out;
@@ -109,77 +126,60 @@ int main(int argc, char** argv){
             double Jra[2]={0.,0.};
             double Jer[2]={0.,0.};
 
-            for(size_t iK=0; iK<nK; iK++){//loop over Dirac points
-                double Kx=Dirac_Kx[iK];
-                double Ky=Dirac_Ky[iK];
-                double Ktype=Dirac_type[iK];
+            //for(size_t iK=0; iK<nK; iK++){//loop over Dirac points
+            //    double Kx=Dirac_Kx[iK];
+            //    double Ky=Dirac_Ky[iK];
+            //    double Ktype=Dirac_type[iK];
 
-                double kxmin=Kx-params.dkx;
-                double kxmax=Kx+params.dkx;
-                double kymin=Ky-params.dky;
-                double kymax=Ky+params.dky;
+            //    double kxmin=Kx-params.dkx;
+            //    double kxmax=Kx+params.dkx;
+            //    double kymin=Ky-params.dky;
+            //    double kymax=Ky+params.dky;
 
-                auto kx_grid=create_grid(kxmin,kxmax,params.Nkx,params.kgrid_type);
-                auto ky_grid=create_grid(kymin,kymax,params.Nky,params.kgrid_type);
+            //    auto kx_grid=create_grid(kxmin,kxmax,params.Nkx,params.kgrid_type);
+            //    auto ky_grid=create_grid(kymin,kymax,params.Nky,params.kgrid_type);
 
                 //integrate band populations
-                pop0+=integrate(params.Nkx,params.Nky,
+                pop0+=kxygrid->integrate(
                     [dens_vv](const size_t& ix, const size_t& iy){
                         return dens_vv(ix,iy);
-                    },
-                    kxmin,kxmax,
-                    kymin,kymax
+                    }
                 );
 
-                pop1+=integrate(params.Nkx,params.Nky,
+                pop1+=kxygrid->integrate(
                     [dens_cc](const size_t& ix, const size_t& iy){
                         return dens_cc(ix,iy);
-                    },
-                    kxmin,kxmax,
-                    kymin,kymax                    
+                    }
                 );                
 
                 //integrate coherences
-                double coh_re=integrate(params.Nkx,params.Nky,
+                double coh_re=kxygrid->integrate(
                     [dens_cv_re](const size_t& ix, const size_t& iy){
                         return dens_cv_re(ix,iy);
-                    },
-                    kxmin,kxmax,
-                    kymin,kymax
+                    }
                 );
 
-                double coh_im=integrate(params.Nkx,params.Nky,
+                double coh_im=kxygrid->integrate(
                     [dens_cv_im](const size_t& ix, const size_t& iy){
                         return dens_cv_im(ix,iy);
-                    },
-                    kxmin,kxmax,
-                    kymin,kymax
+                    }
                 );
 
                 coh+=coh_re+I*coh_im;
 
                 for(int dir=0; dir<2; dir++){
-                    Jra[dir]+=integrate(params.Nkx,params.Nky,
+                    Jra[dir]+=kxygrid->integrate(
                         [dens_vv,dens_cc,
-                        kx_grid,ky_grid,
+                        kxygrid,
                         time,
                         Afield_x,Afield_y,
-                        Ktype,params,
                         gm,
-                        dir](const size_t& ikx_K, const size_t& iky_K){
-                            double kxt=kx_grid[ikx_K]+(*Afield_x)(time);
-                            double kyt=ky_grid[iky_K]+(*Afield_y)(time);
+                        dir](const size_t& ikx, const size_t& iky){
+                            double kx0=(*kxygrid)(ikx,iky)[0];
+                            double ky0=(*kxygrid)(ikx,iky)[1];
 
-                            size_t ikx=0;
-                            size_t iky=0;
-                            if(Ktype==0){//normal indices for K point
-                                ikx=ikx_K;
-                                iky=iky_K;
-                            }
-                            else{//inverse indices for K' point
-                                ikx=ikx_K;
-                                iky=params.Nky-iky_K-1;
-                            }
+                            double kxt=kx0+(*Afield_x)(time);
+                            double kyt=ky0+(*Afield_y)(time);
 
                             if(dir==0){
                                 return gm.px_vv(kxt,kyt)*dens_vv(ikx,iky)
@@ -189,34 +189,23 @@ int main(int argc, char** argv){
                                 return gm.py_vv(kxt,kyt)*dens_vv(ikx,iky)
                                       +gm.py_cc(kxt,kyt)*dens_cc(ikx,iky);
                             }
-                        },
-                        kxmin,kxmax,
-                        kymin,kymax
+                        }
                     );
                 }
 
                 for(int dir=0; dir<2; dir++){
-                    Jer[dir]+=integrate(params.Nkx,params.Nky,
+                    Jer[dir]+=kxygrid->integrate(
                         [dens_cv_re,dens_cv_im,
-                        kx_grid,ky_grid,
+                        kxygrid,
                         time,
                         Afield_x,Afield_y,
-                        Ktype,params,
                         gm,
-                        dir](const size_t& ikx_K, const size_t& iky_K){
-                            double kxt=kx_grid[ikx_K]+(*Afield_x)(time);
-                            double kyt=ky_grid[iky_K]+(*Afield_y)(time);
+                        dir](const size_t& ikx, const size_t& iky){
+                            double kx0=(*kxygrid)(ikx,iky)[0];
+                            double ky0=(*kxygrid)(ikx,iky)[1];
 
-                            size_t ikx=0;
-                            size_t iky=0;
-                            if(Ktype==0){//normal indices for K point
-                                ikx=ikx_K;
-                                iky=iky_K;
-                            }
-                            else{//inverse indices for K' point
-                                ikx=ikx_K;
-                                iky=params.Nky-iky_K-1;
-                            }
+                            double kxt=kx0+(*Afield_x)(time);
+                            double kyt=ky0+(*Afield_y)(time);
 
                             complex_t dens_cv=dens_cv_re(ikx,iky)+I*dens_cv_im(ikx,iky);
 
@@ -226,13 +215,11 @@ int main(int argc, char** argv){
                             else if(dir==1){
                                 return 2.*std::real(gm.py_cv(kxt,kyt)*dens_cv);
                             }
-                        },
-                        kxmin,kxmax,
-                        kymin,kymax
+                        }
                     );
                 }
-            }//loop over Dirac points
-            std::cout<<std::endl;
+            //}//loop over Dirac points
+            //std::cout<<std::endl;
 
             tfile_out<<std::setw(20)<<time*au2fs;
             tfile_out<<std::setw(20)<<(*Afield_x)(time);

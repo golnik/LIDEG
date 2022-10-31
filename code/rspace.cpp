@@ -4,6 +4,7 @@
 #include "mini/ini.h"
 
 #include "utils/utils.hpp"
+#include "utils/grid.hpp"
 #include "utils/multiarray.hpp"
 #include "parser.hpp"
 #include "external_field.hpp"
@@ -36,7 +37,7 @@ int main(int argc, char** argv){
         ExternalField* E0=nullptr;
 
         //prepare xyz grids
-        vector<double> a1(2);
+        /*vector<double> a1(2);
         vector<double> a2(2);
         vector<double> origin(2);
 
@@ -87,6 +88,30 @@ int main(int argc, char** argv){
                 //o+=a2;
             }
             //o+=a1;
+        }
+        grid_out.close();*/
+
+        double Ox=-(1./sqrt(3.))*params.a;
+        double Oy=0.;
+        double a1x=params.a/2.*sqrt(3.);
+        double a1y=params.a/2.;
+        double a2x=a1x;
+        double a2y=-a1y;
+
+        Grid2D* xygrid=new UCellGrid2D(Ox,Oy,a1x,a1y,params.Nx,a2x,a2y,params.Ny);
+
+        //write grids to file
+        std::ofstream grid_out(params.rgfile_fname);
+        grid_out<<params.Nx*params.Ny<<std::endl;
+
+        grid_out<<std::scientific;
+        grid_out<<std::setprecision(8);
+
+        for(size_t ix=0; ix<params.Nx; ix++){
+            for(size_t iy=0; iy<params.Ny; iy++){
+                grid_out<<std::setw(20)<<(*xygrid)(ix,iy)[0];
+                grid_out<<std::setw(20)<<(*xygrid)(ix,iy)[1]<<std::endl;
+            }
         }
         grid_out.close();
 
@@ -141,21 +166,41 @@ int main(int argc, char** argv){
             }
         }
 
+        //create kgrid
+        double Okx=0.;
+        double Oky=0.;
+        double b1x=2.*M_PI/(sqrt(3.)*params.a);
+        double b1y=2.*M_PI/(params.a);
+        double b2x=b1x;
+        double b2y=-b1y;
+
+        /*double Okx=0.;
+        double Oky=M_PI;
+        double b1x=M_PI-Okx;
+        double b1y=2.*M_PI-Oky;
+        double b2x=M_PI-Okx;
+        double b2y=0.-Oky;*/
+
+        Grid2D* kxygrid=new UCellGrid2D(Okx,Oky,b1x,b1y,params.Nkx,b2x,b2y,params.Nky);
+
+        WFs wfs(&gm,&gl,params.Z);
+        WFs_grid wfs_g(&gm,&gl,params.Z,kxygrid);
+
         //create multi grid
-        size_t Nmulti=params.Nkx*params.Nky;
-        double* mgrid=new double [2*Nmulti];
-        double* mres=new double [Nmulti];
+        //size_t Nmulti=params.Nkx*params.Nky;
+        //double* mgrid=new double [2*Nmulti];
+        //double* mres=new double [Nmulti];
 
-        size_t indx=0;
-        for(size_t ikx=0; ikx<params.Nkx; ikx++){
-            for(size_t iky=0; iky<params.Nky; iky++){
-                mgrid[indx         ]=ikx;
-                mgrid[indx+Nmulti  ]=iky;
-                indx++;
-            }
-        }
+        //size_t indx=0;
+        //for(size_t ikx=0; ikx<params.Nkx; ikx++){
+        //    for(size_t iky=0; iky<params.Nky; iky++){
+        //        mgrid[indx         ]=ikx;
+        //        mgrid[indx+Nmulti  ]=iky;
+        //        indx++;
+        //    }
+        //}
 
-        double progress=0.;
+        /*double progress=0.;
         double dP=1./(static_cast<double>(params.Nx)*static_cast<double>(nK));
         for(size_t iK=0; iK<nK; iK++){//loop over Dirac points
             double Kx=Dirac_Kx[iK];
@@ -174,8 +219,8 @@ int main(int argc, char** argv){
             WFs wfs(&gm,&gl,params.Z);
             WFs_grid wfs_g(&gm,&gl,params.Z,kx_grid,ky_grid);
 
-            double dkx=kx_grid[1]-kx_grid[0];
-            double dky=ky_grid[1]-ky_grid[0];
+            //double dkx=kx_grid[1]-kx_grid[0];
+            //double dky=ky_grid[1]-ky_grid[0];
 
             //3D real-space densities
             for(size_t ix=0; ix<params.Nx; ix++){
@@ -188,86 +233,11 @@ int main(int argc, char** argv){
                     for(size_t iz=0; iz<params.Nz; iz++){
                         //double x=xgrid[ix];
                         //double y=ygrid[iy];
-                        double x=xygrid(ix,iy).first;
-                        double y=xygrid(ix,iy).second;
+                        //double x=xygrid(ix,iy).first;
+                        //double y=xygrid(ix,iy).second;
+                        double x=(*xygrid)(ix,iy)[0];
+                        double y=(*xygrid)(ix,iy)[1];
                         double z=zgrid[iz];
-
-                        /*for(size_t im=0; im<Nmulti; im++)
-                            mres[im]=0.;
-
-                        #pragma omp parallel for
-                        for(size_t im=0; im<Nmulti; im++){
-
-                            size_t ikx_K=mgrid[im];
-                            size_t iky_K=mgrid[im+Nmulti];
-
-                            size_t ikx=0;
-                            size_t iky=0;
-                            if(Ktype==0){//normal indices for K point
-                                ikx=ikx_K;
-                                iky=iky_K;
-                            }
-                            else{//inverse indices for K' point
-                                ikx=ikx_K;
-                                iky=params.Nky-iky_K-1;
-                            }
-
-                            //double kx=kx_grid[ikx_K];
-                            //double ky=ky_grid[iky_K];
-
-                            //double kxt=kx+(*Afield_x)(time);
-                            //double kyt=ky+(*Afield_y)(time);
-
-                            complex_t dens_cv=dens_cv_re(ikx,iky)+I*dens_cv_im(ikx,iky);
-
-                            //mres[im]=wfs.phi_2pz(x,y,z);
-
-                            //mres[im]=wfs.PhiA1(x,y,z,kx,ky);
-                            //mres[im]=wfs.PhiA2(x,y,z,kx,ky);
-
-                            //double rho_vv=std::norm(wfs.psip(x,y,z,kx,ky));
-                            //double rho_cc=std::norm(wfs.psim(x,y,z,kx,ky));
-
-                            //complex_t psip=wfs.psip(x,y,z,kxt,kyt);
-                            //complex_t psim=wfs.psim(x,y,z,kxt,kyt);
-
-                            //complex_t rho_vc=std::conj(wfs.psip(x,y,z,kx,ky))*wfs.psim(x,y,z,kx,ky);
-
-                            complex_t psip=wfs_g.psip(x,y,z,ikx_K,iky_K);
-                            complex_t psim=wfs_g.psim(x,y,z,ikx_K,iky_K);
-
-                            double rho_vv=std::norm(psip);
-                            double rho_cc=std::norm(psim);
-                            complex_t rho_vc=std::conj(psip)*psim;
-
-                            double rho_t=dens_vv(ikx,iky)*rho_vv
-                                        +dens_cc(ikx,iky)*rho_cc
-                                        +2.*std::real(dens_cv*rho_vc);
-                            //rho_t*=(2./SBZ);
-
-                            mres[im]=rho_t-rho_vv;
-
-                            //mres[im]=std::norm(psip);
-                            //mres[im]=std::norm(psim);
-
-                            //mres[im]=dens_vv(ikx,iky)*rho_vv
-                            //        +dens_cc(ikx,iky)*rho_cc
-                            //        -rho_vv;
-                            //mres[im]=dens_cc(ikx,iky)
-                            //        *(-rho_vv+rho_cc);
-                            
-                            //mres[im]=std::norm(wfs.psim(x,y,z,kx,ky));
-                            //mres[im]=std::real(std::conj(wfs.psim(x,y,z,kx,ky))*wfs.psip(x,y,z,kx,ky));
-
-                            //mres[im]=pow(std::abs(wfs.psip(x,y,z,kx,ky)),2.)*rho00(ikx,iky)
-                            //        +pow(std::abs(wfs.psim(x,y,z,kx,ky)),2.)*rho11(ikx,iky)
-                            //        +2.*std::real(std::conj(wfs.psim(x,y,z,kx,ky))*wfs.psip(x,y,z,kx,ky))*rho01(ikx,iky)
-                            //        ;
-                        }
-
-                        for(size_t im=0; im<Nmulti; im++){
-                            res(ix,iy,iz)+=mres[im];
-                        }*/
 
                         res(ix,iy,iz)+=integrate(params.Nkx,params.Nky,
                             [params,
@@ -300,9 +270,9 @@ int main(int argc, char** argv){
                                             +dens_cc(ikx,iky)*rho_cc;
                                             //+2.*std::real(dens_cv*rho_vc);
 
-                                //double res=2.*3.*(2./SBZ)*(rho_t-rho_vv);
+                                double res=2.*3.*(2./SBZ)*(rho_t-rho_vv);
 
-                                double res=rho_cc-rho_vv;
+                                //double res=rho_cc-rho_vv;
 
                                 //double res=std::abs(wfs_g.psip(x,y,z,ikx_K,iky_K))
                                 //          -std::abs(wfs.psip(x,y,z,kx_grid[ikx],ky_grid[iky]));
@@ -316,6 +286,65 @@ int main(int argc, char** argv){
                 }//y loop        
             }//x loop
         }//loop over Dirac points        
+        */
+
+        //3D real-space densities
+        for(size_t ix=0; ix<params.Nx; ix++){
+            for(size_t iy=0; iy<params.Ny; iy++){
+                for(size_t iz=0; iz<params.Nz; iz++){
+                    double x=(*xygrid)(ix,iy)[0];
+                    double y=(*xygrid)(ix,iy)[1];
+                    double z=zgrid[iz];
+
+                    auto func=[x,y,z,
+                    dens_vv,dens_cc,dens_cv_re,dens_cv_im,
+                    &wfs,&wfs_g,
+                    SBZ,
+                    kxygrid](const size_t& ikx, const size_t& iky){
+                        double kx=(*kxygrid)(ikx,iky)[0];
+                        double ky=(*kxygrid)(ikx,iky)[1];
+
+                        //complex_t psip=wfs.psip(x,y,z,kx,ky);
+                        //complex_t psim=wfs.psim(x,y,z,kx,ky);
+
+                        complex_t psip=wfs_g.psip(x,y,z,ikx,iky);
+                        complex_t psim=wfs_g.psim(x,y,z,ikx,iky);
+
+                        double rho_vv=pow(std::abs(psip),2.);
+                        double rho_cc=pow(std::abs(psim),2.);
+                        complex_t rho_vc=std::conj(psip)*psim;
+
+                        complex_t dens_cv=dens_cv_re(ikx,iky)+I*dens_cv_im(ikx,iky);
+
+                        double rho_t=dens_vv(ikx,iky)*rho_vv
+                                    +dens_cc(ikx,iky)*rho_cc
+                                    +2.*std::real(dens_cv*rho_vc);
+
+                        double res=(2./SBZ)*(rho_t-rho_vv);
+
+                        //double res=(2./SBZ)*std::real(dens_cv*rho_vc);
+
+                        //double res=(2./SBZ)*rho_t;
+
+                        //double res=std::real(psim)-std::real(psim_g);
+
+                        //double res=std::norm(psip)-std::norm(psim);
+                        //double res=std::norm(psip_g)-std::norm(psim_g);
+
+                        //double res=kx*kx+ky*ky;
+
+                        //double res=pow(kx-ky,2.)*pow(cos(kx+ky),2.);
+
+                        return res;
+                    };
+
+                    //double integr=kxygrid->integrate(func);
+                    //std::cout<<integr<<std::endl;
+
+                    res(ix,iy,iz)+=kxygrid->integrate(func);
+                }
+            }
+        }
 
         //output real space data
         std::string rho_t_fname=params.rhofile_fname;
@@ -324,25 +353,23 @@ int main(int argc, char** argv){
 
         std::cout<<"Real space density will be written to: "<<rho_t_fname<<std::endl;
 
-        double sum=0.;
         for(size_t ix=0; ix<params.Nx; ix++){
             for(size_t iy=0; iy<params.Ny; iy++){
-                double res_xy=0.;
                 for(size_t iz=0; iz<params.Nz; iz++){
-                    //double x=xgrid[ix];
-                    //double y=ygrid[iy];
-                    //double z=zgrid[iz];
-
-                    //res_xy+=res(ix,iy,iz);
                     rho_t_out<<res(ix,iy,iz)<<std::endl;
-
-                    sum+=res(ix,iy,iz);
                 }
-                //rho_t_out<<res_xy<<std::endl;
             }
         }
         rho_t_out.close();
 
+        double sum=0.;
+        for(size_t iz=0; iz<params.Nz; iz++){
+            std::function<double(const size_t& ix, const size_t& iy)> rho_xy=
+            [res,iz](const size_t& ix, const size_t& iy){
+                return res(ix,iy,iz);
+            };
+            sum+=xygrid->integrate(rho_xy);
+        }
         std::cout<<"Sum: "<<sum<<std::endl;
 
     }catch(std::string er){

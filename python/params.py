@@ -111,6 +111,21 @@ class InputParams:
         if os.path.isfile(self.kgfile_fname):
             with open(self.kgfile_fname,'r') as file:
                 kgrid_data = file.readlines()
+            Nkxky = int(kgrid_data[0])
 
-            self.kx_grid = np.float_(kgrid_data[1].split())
-            self.ky_grid = np.float_(kgrid_data[3].split())
+            self.kx_grid = []
+            self.ky_grid = []
+
+            for iline in range(Nkxky):
+                data = kgrid_data[iline+1].split()
+                kx = float(data[0])
+                ky = float(data[1])
+
+                self.kx_grid.append(kx)
+                self.ky_grid.append(ky)
+
+            self.kx_grid = np.asarray(self.kx_grid)
+            self.ky_grid = np.asarray(self.ky_grid)            
+
+            #self.kx_grid = np.float_(kgrid_data[1].split())
+            #self.ky_grid = np.float_(kgrid_data[3].split())

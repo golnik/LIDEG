@@ -90,7 +90,7 @@ public:
     }    
 
     double phi(const double& kx, const double& ky) const{
-        return arg(f(kx,ky));
+        return atan2(f_im(kx,ky),f_re(kx,ky)); //arg(f(kx,ky));
     }
 
     template<typename T1, typename T2>

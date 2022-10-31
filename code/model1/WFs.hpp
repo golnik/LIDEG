@@ -4,6 +4,7 @@
 #include <vector>
 
 //#include "utils.hpp"
+#include "utils/grid.hpp"
 #include "graphene.hpp"
 
 #include <boost/numeric/ublas/matrix.hpp>
@@ -202,11 +203,11 @@ public WFs{
 public:
     WFs_grid(GrapheneModel* gm, GrapheneLayer* gl,
              const double& Z,
-             const std::vector<double>& kx_grid, const std::vector<double>& ky_grid):
+             Grid2D* kxygrid):
     WFs(gm,gl,Z),
-    _kx_grid(kx_grid),_ky_grid(ky_grid){
-        size_t Nkx=_kx_grid.size();
-        size_t Nky=_ky_grid.size();
+    _kxygrid(kxygrid){
+        size_t Nkx=_kxygrid->size1();
+        size_t Nky=_kxygrid->size2();
 
         size_t Natoms=WFs::_gl->get_Natoms();
 
@@ -219,8 +220,8 @@ public:
 
         for(size_t ikx=0; ikx<Nkx; ikx++){
             for(size_t iky=0; iky<Nky; iky++){
-                double kx=kx_grid[ikx];
-                double ky=ky_grid[iky];
+                double kx=(*kxygrid)(ikx,iky)[0];
+                double ky=(*kxygrid)(ikx,iky)[1];
 
                 size_t ikxiky=indx_2D(ikx,iky);
 
@@ -259,6 +260,7 @@ public:
         delete[] _pf_p_on_grid;
         delete[] _pf_m_on_grid;
         delete[] _exp_phi_on_grid;
+        //delete _kxygrid;
     }
 
     complex_t PhiA1(const double& rx, const double& ry, const double& rz,
@@ -313,15 +315,14 @@ private:
     double* _pf_m_on_grid;
     complex_t* _exp_phi_on_grid;
 
-    std::vector<double> _kx_grid;
-    std::vector<double> _ky_grid;
+    Grid2D* _kxygrid;
 
     size_t indx_2D(const size_t& i, const size_t& j) const{
-        return i*_kx_grid.size()+j;
+        return i*_kxygrid->size2()+j;
     }
 
     size_t indx_3D(const size_t& i, const size_t& j, const size_t& k) const{
-        return k*_kx_grid.size()*_ky_grid.size()+indx_2D(i,j);
+        return k*_kxygrid->size()+indx_2D(i,j);
     }
 };
 
