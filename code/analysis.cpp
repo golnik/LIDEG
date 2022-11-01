@@ -53,7 +53,7 @@ int main(int argc, char** argv){
         ExternalField* Efield_y=new ExternalFieldFromData(Edata_y_fit,t0_fit,dt_fit,params.E0);
 
         //create graphene model
-        GrapheneModel gm(params.a,params.e2p,params.gamma,params.s,
+        GrapheneModel gm(params.a,params.e2p,params.gamma,params.s,params.Td,
                          Efield_x,Efield_y);
 
         //create kgrid
@@ -72,6 +72,9 @@ int main(int argc, char** argv){
         double b2y=0.-Oky;*/
 
         Grid2D* kxygrid=new UCellGrid2D(Okx,Oky,b1x,b1y,params.Nkx,b2x,b2y,params.Nky);
+
+        //area of BZ
+        double SBZ=pow(2.*M_PI,2.)/(0.5*sqrt(3.)*params.a*params.a);
 
         //create Dirac points
         //std::vector<double> Dirac_Kx;
@@ -226,10 +229,10 @@ int main(int argc, char** argv){
             tfile_out<<std::setw(20)<<(*Afield_y)(time);
             tfile_out<<std::setw(20)<<(*Efield_x)(time);
             tfile_out<<std::setw(20)<<(*Efield_y)(time);
-            tfile_out<<std::setw(20)<<pop0;
-            tfile_out<<std::setw(20)<<pop1;
-            tfile_out<<std::setw(20)<<std::real(coh);
-            tfile_out<<std::setw(20)<<std::imag(coh);
+            tfile_out<<std::setw(20)<<pop0/SBZ;
+            tfile_out<<std::setw(20)<<pop1/SBZ;
+            tfile_out<<std::setw(20)<<std::real(coh)/SBZ;
+            tfile_out<<std::setw(20)<<std::imag(coh)/SBZ;
             tfile_out<<std::setw(20)<<Jra[0];
             tfile_out<<std::setw(20)<<Jra[1];
             tfile_out<<std::setw(20)<<Jer[0];

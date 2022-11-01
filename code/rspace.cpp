@@ -118,7 +118,7 @@ int main(int argc, char** argv){
         auto zgrid=create_grid(params.zmin,params.zmax,params.Nz);
 
         //create graphene model
-        GrapheneModel gm(params.a,params.e2p,params.gamma,params.s,
+        GrapheneModel gm(params.a,params.e2p,params.gamma,params.s,params.Td,
                          E0,E0);
 
         //create graphene layer

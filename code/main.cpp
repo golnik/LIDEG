@@ -76,7 +76,7 @@ int main(int argc, char** argv){
         ExternalField* Efield_y=new ExternalFieldFromData(Edata_y_fit,t0_fit,dt_fit,params.E0);
 
         //create graphene model
-        GrapheneModel gm(params.a,params.e2p,params.gamma,params.s,
+        GrapheneModel gm(params.a,params.e2p,params.gamma,params.s,params.Td,
                          Efield_x,Efield_y);
 
         GrapheneModel2 gm2(params.a,params.e2p,params.gamma,params.s,

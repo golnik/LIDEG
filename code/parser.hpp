@@ -53,6 +53,7 @@ struct Parameters{
     double gamma;
     double s;
     double Z;
+    double Td;
 
     std::string outdir;
     std::string kgfile_fname;
@@ -188,6 +189,9 @@ public:
 
         std::string Z_str=ini.get("model").get("Z");
         _params.Z=std::stod(Z_str);
+
+        std::string Td_str=ini.get("model").get("Td");
+        _params.Td=std::stod(Td_str)/au2fs;
 
         //parse output
         _params.outdir=ini.get("output").get("outdir");

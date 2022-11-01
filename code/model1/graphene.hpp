@@ -22,9 +22,11 @@ class GrapheneModel{
 public:
     GrapheneModel(const double& a,
                   const double& e2p, const double& gamma, const double& s,
+                  const double& Td,
                   ExternalField* Ex, ExternalField* Ey):
     _a(a),
     _e2p(e2p),_gamma(gamma),_s(s),
+    _Td(Td),
     _Ex{Ex},_Ey{Ey}{}
 
     ~GrapheneModel(){}
@@ -203,6 +205,8 @@ public:
                     //-(*_Ex)(t)*comm_x(n,m)//-(*_Ey)(t)*comm_y(m,n)
 
                 );
+
+                if(m!=n) drhodt(n,m)+=-(1./_Td)*rho(n,m);
             }
         }
     }
@@ -211,6 +215,7 @@ private:
     double _e2p;
     double _gamma;
     double _s;
+    double _Td;
 
     ExternalField* _Ex;
     ExternalField* _Ey;
