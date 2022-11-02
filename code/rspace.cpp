@@ -115,8 +115,17 @@ int main(int argc, char** argv){
         }
         grid_out.close();
 
-        auto zgrid=create_grid(params.zmin,params.zmax,params.Nz);
-
+        Grid1D* zgrid;
+        Pzorb* pz;
+        if(params.Nz==0 || params.Nz==1){
+            zgrid=new RegularGrid1D(0.0,1.0,1);
+            pz=new Pzorb_integr(params.Z);
+        }
+        else{
+            zgrid=new RegularGrid1D(params.zmin,params.zmax,params.Nz);
+            pz=new Pzorb_normal(params.Z);
+        }
+        
         //create graphene model
         GrapheneModel gm(params.a,params.e2p,params.gamma,params.s,params.Td,
                          E0,E0);
@@ -138,12 +147,12 @@ int main(int argc, char** argv){
         double SBZ=pow(2.*M_PI,2.)/(0.5*sqrt(3.)*params.a*params.a);
 
         //create Dirac points
-        std::vector<double> Dirac_Kx;
-        std::vector<double> Dirac_Ky;
-        std::vector<int> Dirac_type;
+        //std::vector<double> Dirac_Kx;
+        //std::vector<double> Dirac_Ky;
+        //std::vector<int> Dirac_type;
 
-        gm.get_Dirac_points(Dirac_Kx,Dirac_Ky,Dirac_type);
-        size_t nK=Dirac_Kx.size();
+        //gm.get_Dirac_points(Dirac_Kx,Dirac_Ky,Dirac_type);
+        //size_t nK=Dirac_Kx.size();
 
         //read density from file
         std::string dens_t_fname=params.densfile_fname;
@@ -160,7 +169,7 @@ int main(int argc, char** argv){
         MultiArray<double,Nx_max,Ny_max,Nz_max> res;
         for(size_t ix=0; ix<params.Nx; ix++){
             for(size_t iy=0; iy<params.Ny; iy++){
-                for(size_t iz=0; iz<params.Nz; iz++){
+                for(size_t iz=0; iz<zgrid->size(); iz++){
                     res(ix,iy,iz)=0.;
                 }
             }
@@ -183,8 +192,8 @@ int main(int argc, char** argv){
 
         Grid2D* kxygrid=new UCellGrid2D(Okx,Oky,b1x,b1y,params.Nkx,b2x,b2y,params.Nky);
 
-        WFs wfs(&gm,&gl,params.Z);
-        WFs_grid wfs_g(&gm,&gl,params.Z,kxygrid);
+        WFs wfs(&gm,&gl,pz);
+        WFs_grid wfs_g(&gm,&gl,pz,kxygrid);
 
         //create multi grid
         //size_t Nmulti=params.Nkx*params.Nky;
@@ -291,10 +300,10 @@ int main(int argc, char** argv){
         //3D real-space densities
         for(size_t ix=0; ix<params.Nx; ix++){
             for(size_t iy=0; iy<params.Ny; iy++){
-                for(size_t iz=0; iz<params.Nz; iz++){
+                for(size_t iz=0; iz<zgrid->size(); iz++){
                     double x=(*xygrid)(ix,iy)[0];
                     double y=(*xygrid)(ix,iy)[1];
-                    double z=zgrid[iz];
+                    double z=(*zgrid)[iz];
 
                     auto func=[x,y,z,
                     dens_vv,dens_cc,dens_cv_re,dens_cv_im,
@@ -353,17 +362,19 @@ int main(int argc, char** argv){
 
         std::cout<<"Real space density will be written to: "<<rho_t_fname<<std::endl;
 
+        rho_t_out<<std::scientific;
+        rho_t_out<<std::setprecision(10);
         for(size_t ix=0; ix<params.Nx; ix++){
             for(size_t iy=0; iy<params.Ny; iy++){
-                for(size_t iz=0; iz<params.Nz; iz++){
-                    rho_t_out<<res(ix,iy,iz)<<std::endl;
+                for(size_t iz=0; iz<zgrid->size(); iz++){
+                    rho_t_out<<std::setw(20)<<res(ix,iy,iz)<<std::endl;
                 }
             }
         }
         rho_t_out.close();
 
         double sum=0.;
-        for(size_t iz=0; iz<params.Nz; iz++){
+        for(size_t iz=0; iz<zgrid->size(); iz++){
             std::function<double(const size_t& ix, const size_t& iy)> rho_xy=
             [res,iz](const size_t& ix, const size_t& iy){
                 return res(ix,iy,iz);

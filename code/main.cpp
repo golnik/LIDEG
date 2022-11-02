@@ -211,6 +211,8 @@ int main(int argc, char** argv){
             dens_t_out<<     std::setw(20)<<"rho_cc";
             dens_t_out<<     std::setw(20)<<"Re{rho_cv}";
             dens_t_out<<     std::setw(20)<<"Im{rho_cv}";
+            dens_t_out<<     std::setw(20)<<"abs{rho_cv}";
+            dens_t_out<<     std::setw(20)<<"arg{rho_cv}";
             dens_t_out<<std::endl;
             for(size_t ikx=0; ikx<params.Nkx; ikx++){
                 for(size_t iky=0; iky<params.Nky; iky++){

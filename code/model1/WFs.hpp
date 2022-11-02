@@ -116,19 +116,23 @@ private:
     double* _A2_y;
 };
 
-class WFs{
+class Pzorb{
 public:
-    WFs(GrapheneModel* gm, GrapheneLayer* gl,
-        const double& Z):
-    _gm{gm},_gl{gl},
+    Pzorb(const double& Z):
     _Z(Z){}
 
-    ~WFs(){
-        //delete _gm;
-        //delete _gl;
-    }
+    virtual double operator()(const double& rx, const double& ry, const double& rz) const=0;
+protected:
+    double _Z;
+};
 
-    double phi_2pz(const double& rx, const double& ry, const double& rz) const{
+class Pzorb_normal:
+public Pzorb{
+public:
+    Pzorb_normal(const double& Z):
+    Pzorb(Z){}
+
+    double operator()(const double& rx, const double& ry, const double& rz) const override{
         double r=sqrt(rx*rx+ry*ry+rz*rz);
         double cos_theta=0.;
         
@@ -140,13 +144,37 @@ public:
         }
 
         return _Z*r*cos_theta*exp(-0.5*_Z*r);
-
-        //return phi_2pz_intz(rx,ry,rz);
     }
+private:
+};
 
-    double phi_2pz_intz(const double& rx, const double& ry, const double& rz) const{
+class Pzorb_integr:
+public Pzorb{
+public:
+    Pzorb_integr(const double& Z):
+    Pzorb(Z){}
+
+    double operator()(const double& rx, const double& ry, const double& rz) const override{
         double r=sqrt(rx*rx+ry*ry+rz*rz);
         return -2.*exp(-0.5*_Z*r)*(2.+r*_Z)/_Z;
+    }
+private:
+};
+
+class WFs{
+public:
+    WFs(GrapheneModel* gm, GrapheneLayer* gl,
+        Pzorb* pz):
+    _gm{gm},_gl{gl},
+    _pz{pz}{}
+
+    ~WFs(){
+        //delete _gm;
+        //delete _gl;
+    }
+
+    double phi_2pz(const double& rx, const double& ry, const double& rz) const{
+        return (*_pz)(rx,ry,rz);
     }
 
     complex_t PhiA1(const double& rx, const double& ry, const double& rz,
@@ -195,16 +223,16 @@ public:
 protected:
     GrapheneModel* _gm;
     GrapheneLayer* _gl;
-    double _Z;
+    Pzorb* _pz;
 };
 
 class WFs_grid:
 public WFs{
 public:
     WFs_grid(GrapheneModel* gm, GrapheneLayer* gl,
-             const double& Z,
+             Pzorb* pz,
              Grid2D* kxygrid):
-    WFs(gm,gl,Z),
+    WFs(gm,gl,pz),
     _kxygrid(kxygrid){
         size_t Nkx=_kxygrid->size1();
         size_t Nky=_kxygrid->size2();

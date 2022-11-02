@@ -22,11 +22,16 @@ public:
     _N(N){
         _grid=new double [N];
 
-        double d=(max-min)/(N-1);
-        double var=min;
-        for(size_t i=0; i<N; i++){
-            _grid[i]=var;
-            var+=d;
+        if(N==1){
+            _grid[0]=min;
+        }
+        else if(N>1){
+            double d=(max-min)/(N-1);
+            double var=min;
+            for(size_t i=0; i<N; i++){
+                _grid[i]=var;
+                var+=d;
+            }
         }
     }
 
