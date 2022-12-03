@@ -1,5 +1,7 @@
 import numpy as np
 
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib import cm
 
@@ -17,7 +19,9 @@ def plot_reciprocal(params,it,dens_data,fig_fname):
 
     levels = np.linspace(0.,1.,100)
 
-    ax.contourf(params.kx_grid/au2nm,params.ky_grid/au2nm,dens_data,levels=levels,cmap=cm.jet)
+    dens_data = dens_data.flatten(order='F')
+
+    ax.tricontourf(params.kx_grid/au2nm,params.ky_grid/au2nm,dens_data,levels=levels,cmap=cm.jet)
     ax.set_box_aspect(1)
     ax.set_xlabel(r"$k_x [\mathrm{nm}^{-1}]$",labelpad=10)
     ax.set_ylabel(r"$k_y [\mathrm{nm}^{-1}]$",labelpad=5)

@@ -104,6 +104,8 @@ public:
 
     virtual std::array<double,2> operator()(const size_t& i, const size_t& j) const=0;
     virtual double integrate(const func_t& f) const=0;
+
+    virtual double get_dS() const=0;
 private:
 };
 
@@ -191,15 +193,9 @@ public:
 
     //2D trapezoidal integration
     double integrate(const func_t& f) const override{
-        double ab=inner_prod(*_a,*_b);
-        double na=norm_2(*_a);
-        double nb=norm_2(*_b);
-        double theta=acos(ab/(na*nb));
-        double dS=na*na*sin(theta);
-
         double res=0.;
 
-        double Ncross=(_Nx-2)*(_Ny-2);
+        size_t Ncross=(_Nx-2)*(_Ny-2);
         double* tmp=new double[(_Nx-2)*(_Ny-2)];
         
         #pragma omp parallel for collapse(2)
@@ -228,7 +224,17 @@ public:
 
         res+=0.5*(sumi+sumj)+0.25*(f(0,0)+f(_Nx-1,0)+f(0,_Ny-1)+f(_Nx-1,_Ny-1));
 
-        return dS*res;
+        return this->get_dS()*res;
+    }
+
+    double get_dS() const override{
+        double ab=inner_prod(*_a,*_b);
+        double na=norm_2(*_a);
+        double nb=norm_2(*_b);
+        double theta=acos(ab/(na*nb));
+        double dS=na*na*sin(theta);
+
+        return dS;
     }
 private:
     size_t _Nx;
@@ -237,6 +243,51 @@ private:
     vector_t* _a;
     vector_t* _b;
     vector_t* _O;    
+};
+
+class Integrator2D{
+public:
+    Integrator2D(Grid2D* grid):
+    _grid{grid}{}
+
+    template<typename value_t, typename func_t>
+    void trapz(const func_t& f, value_t& res) const{
+        size_t Nx=_grid->size1();
+        size_t Ny=_grid->size2();
+        double dS=_grid->get_dS();
+
+        size_t Ncross=(Nx-2)*(Ny-2);
+        value_t* tmp=new value_t[(Nx-2)*(Ny-2)];
+        
+        #pragma omp parallel for collapse(2)
+        for(size_t ix=0; ix<Nx-2; ix++){
+            for(size_t iy=0; iy<Ny-2; iy++){
+                size_t indx=ix*(Ny-2)+iy;
+
+                tmp[indx]=f(ix+1,iy+1);
+            }
+        }
+        for(size_t indx=0; indx<Ncross; indx++){
+            res+=tmp[indx];
+        }
+
+        delete [] tmp;
+
+        for(size_t ix=1; ix<Nx-1; ix++){
+            res+=0.5*(f(ix,0)+f(ix,Ny-1));
+        }
+
+        for(size_t iy=1; iy<Ny-1; iy++){
+            res+=0.5*(f(0,iy)+f(Nx-1,iy));
+        }
+
+        res+=0.25*(f(0,0)+f(Nx-1,0)+f(0,Ny-1)+f(Nx-1,Ny-1));
+        res*=dS;
+
+        return;
+    }
+private:
+    Grid2D* _grid;
 };
 
 #endif

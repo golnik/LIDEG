@@ -14,8 +14,18 @@ au2Vnm = 5.14220826*10**2
 au2fs  = 0.02418884254
 
 def plot_2D(params,it,rho_data,fig_fname):
-    rho_data = rho_data[:].reshape((params.Nx,params.Ny,params.Nz))
-    rho_data_xy = np.transpose(np.trapz(rho_data,x=params.zgrid*au2A,axis=2))
+    if params.Nz == 0 or params.Nz == 1:
+        rho_data_vv    = rho_data[:,0].reshape((params.Nx,params.Ny,1))
+        rho_data_cc    = rho_data[:,1].reshape((params.Nx,params.Ny,1))
+        rho_data_nocoh = rho_data[:,2].reshape((params.Nx,params.Ny,1))
+        rho_data_coh   = rho_data[:,3].reshape((params.Nx,params.Ny,1))
+        rho_data_total = rho_data[:,4].reshape((params.Nx,params.Ny,1))
+
+        rho_data_xy = rho_data_total - rho_data_vv
+        #rho_data_xy = rho_data_coh
+    #else:
+    #    rho_data = rho_data[:,col].reshape((params.Nx,params.Ny,params.Nz))
+    #    rho_data_xy = np.transpose(np.trapz(rho_data,x=params.zgrid*au2A,axis=2))
 
     fig, ax = plt.subplots(figsize=(8,8))
 
@@ -28,7 +38,8 @@ def plot_2D(params,it,rho_data,fig_fname):
     zmax = rho_data_xy.max()
 
     ZZ = max(abs(zmin),abs(zmax))
-    #ZZ = 6.e-3*0.21
+    #ZZ = 0.001
+    #print(ZZ)
     levels = np.linspace(-ZZ,ZZ,151)
 
     if params.rgrid_type == "regular":

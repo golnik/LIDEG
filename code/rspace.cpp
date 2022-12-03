@@ -11,6 +11,7 @@
 #include "model1/graphene.hpp"
 #include "model1/WFs.hpp"
 
+#include <boost/numeric/ublas/vector.hpp>
 #include <boost/numeric/ublas/matrix.hpp>
 using namespace boost::numeric::ublas;
 
@@ -34,7 +35,32 @@ int main(int argc, char** argv){
 
         params.print(std::cout);
 
-        ExternalField* E0=nullptr;
+        //read fields from file
+        std::vector<double> tgrid_fit;
+        std::vector<double> Adata_x_fit;
+        std::vector<double> Adata_y_fit;
+        std::vector<double> Edata_x_fit;
+        std::vector<double> Edata_y_fit;
+
+        read_column_from_file(params.field_fname,0,tgrid_fit);
+        read_column_from_file(params.field_fname,1,Adata_x_fit);
+        read_column_from_file(params.field_fname,2,Adata_y_fit);
+        read_column_from_file(params.field_fname,3,Edata_x_fit);
+        read_column_from_file(params.field_fname,4,Edata_y_fit);
+
+        double t0_fit=tgrid_fit[0]/au2fs;
+        double dt_fit=(tgrid_fit[1]-tgrid_fit[0])/au2fs;
+
+        ExternalField* Afield_x=new ExternalFieldFromData(Adata_x_fit,t0_fit,dt_fit,params.E0);
+        ExternalField* Afield_y=new ExternalFieldFromData(Adata_y_fit,t0_fit,dt_fit,params.E0);
+        ExternalField* Efield_x=new ExternalFieldFromData(Edata_x_fit,t0_fit,dt_fit,params.E0);
+        ExternalField* Efield_y=new ExternalFieldFromData(Edata_y_fit,t0_fit,dt_fit,params.E0);
+
+        auto tgrid=create_grid(params.tmin,params.tmax,params.Nt);
+        double time=tgrid[tstep];
+
+        double Ax=(*Afield_x)(time);
+        double Ay=(*Afield_y)(time);
 
         //prepare xyz grids
         /*vector<double> a1(2);
@@ -128,7 +154,7 @@ int main(int argc, char** argv){
         
         //create graphene model
         GrapheneModel gm(params.a,params.e2p,params.gamma,params.s,params.Td,
-                         E0,E0);
+                         Efield_x,Efield_y);
 
         //create graphene layer
         double R0x=0.5*(params.xmax+params.xmin);
@@ -166,11 +192,11 @@ int main(int argc, char** argv){
         matrix_t dens_cv_im=read_2D_from_file<matrix_t>(dens_t_fname,3,params.Nkx,params.Nky);
 
         //array for real space data
-        MultiArray<double,Nx_max,Ny_max,Nz_max> res;
+        MultiArray<vector<double>,Nx_max,Ny_max,Nz_max> res;
         for(size_t ix=0; ix<params.Nx; ix++){
             for(size_t iy=0; iy<params.Ny; iy++){
                 for(size_t iz=0; iz<zgrid->size(); iz++){
-                    res(ix,iy,iz)=0.;
+                    res(ix,iy,iz)=zero_vector<double>(5);
                 }
             }
         }
@@ -191,9 +217,12 @@ int main(int argc, char** argv){
         double b2y=0.-Oky;*/
 
         Grid2D* kxygrid=new UCellGrid2D(Okx,Oky,b1x,b1y,params.Nkx,b2x,b2y,params.Nky);
+        Integrator2D* integrator=new Integrator2D(kxygrid);
+
+        Grid2D* kxygridA=new UCellGrid2D(Okx+Ax,Oky+Ay,b1x,b1y,params.Nkx,b2x,b2y,params.Nky);
 
         WFs wfs(&gm,&gl,pz);
-        WFs_grid wfs_g(&gm,&gl,pz,kxygrid);
+        WFs_grid wfs_g(&gm,&gl,pz,kxygridA);
 
         //create multi grid
         //size_t Nmulti=params.Nkx*params.Nky;
@@ -319,17 +348,32 @@ int main(int argc, char** argv){
                         complex_t psip=wfs_g.psip(x,y,z,ikx,iky);
                         complex_t psim=wfs_g.psim(x,y,z,ikx,iky);
 
-                        double rho_vv=pow(std::abs(psip),2.);
-                        double rho_cc=pow(std::abs(psim),2.);
+                        double rho_vv=std::norm(psip);
+                        double rho_cc=std::norm(psim);
                         complex_t rho_vc=std::conj(psip)*psim;
 
                         complex_t dens_cv=dens_cv_re(ikx,iky)+I*dens_cv_im(ikx,iky);
 
-                        double rho_t=dens_vv(ikx,iky)*rho_vv
-                                    +dens_cc(ikx,iky)*rho_cc
-                                    +2.*std::real(dens_cv*rho_vc);
+                        double rho_nocoh=dens_vv(ikx,iky)*rho_vv+dens_cc(ikx,iky)*rho_cc;
+                        double rho_coh=2.*std::real(dens_cv*rho_vc);
+                        double rho_t=rho_nocoh+rho_coh;
 
-                        double res=(2./SBZ)*(rho_t-rho_vv);
+                        //double rho_t=dens_vv(ikx,iky)*rho_vv
+                        //            +dens_cc(ikx,iky)*rho_cc
+                        //            +2.*std::real(dens_cv*rho_vc);
+
+                        vector<double> res(5);
+                        res(0)=rho_vv;
+                        res(1)=rho_cc;
+                        res(2)=rho_nocoh;
+                        res(3)=rho_coh;
+                        res(4)=rho_t;
+
+                        //res(3)=(2./SBZ)*(rho_t-rho_vv);
+
+                        //double res=(2./SBZ)*(rho_t-rho_vv);
+
+                        //double res=rho_t;
 
                         //double res=(2./SBZ)*std::real(dens_cv*rho_vc);
 
@@ -350,7 +394,9 @@ int main(int argc, char** argv){
                     //double integr=kxygrid->integrate(func);
                     //std::cout<<integr<<std::endl;
 
-                    res(ix,iy,iz)+=kxygrid->integrate(func);
+                    //res(ix,iy,iz)(0)+=kxygrid->integrate(func);
+
+                    integrator->trapz(func,res(ix,iy,iz));
                 }
             }
         }
@@ -363,17 +409,26 @@ int main(int argc, char** argv){
         std::cout<<"Real space density will be written to: "<<rho_t_fname<<std::endl;
 
         rho_t_out<<std::scientific;
-        rho_t_out<<std::setprecision(10);
+        rho_t_out<<std::setprecision(15);
+        rho_t_out<<"#"<<std::setw(24)<<"rho_vv";
+        rho_t_out<<     std::setw(25)<<"rho_cc";
+        rho_t_out<<     std::setw(25)<<"rho_nocoh";
+        rho_t_out<<     std::setw(25)<<"rho_coh";
+        rho_t_out<<     std::setw(25)<<"rho_total";
+        rho_t_out<<std::endl;        
         for(size_t ix=0; ix<params.Nx; ix++){
             for(size_t iy=0; iy<params.Ny; iy++){
                 for(size_t iz=0; iz<zgrid->size(); iz++){
-                    rho_t_out<<std::setw(20)<<res(ix,iy,iz)<<std::endl;
+                    for(size_t i=0; i<res(ix,iy,iz).size(); i++){
+                        rho_t_out<<std::setw(25)<<res(ix,iy,iz)(i);
+                    }
+                    rho_t_out<<std::endl;
                 }
             }
         }
         rho_t_out.close();
 
-        double sum=0.;
+        /*double sum=0.;
         for(size_t iz=0; iz<zgrid->size(); iz++){
             std::function<double(const size_t& ix, const size_t& iy)> rho_xy=
             [res,iz](const size_t& ix, const size_t& iy){
@@ -381,7 +436,7 @@ int main(int argc, char** argv){
             };
             sum+=xygrid->integrate(rho_xy);
         }
-        std::cout<<"Sum: "<<sum<<std::endl;
+        std::cout<<"Sum: "<<sum<<std::endl;*/
 
     }catch(std::string er){
         std::cout<<' '<<er<<std::endl;

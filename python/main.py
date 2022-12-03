@@ -8,6 +8,9 @@ import params
 
 import model
 
+import matplotlib
+matplotlib.use('Agg')
+
 from plots.plot_debug import *
 from plots.plot_tdata import *
 from plots.plot_reciprocal import *
