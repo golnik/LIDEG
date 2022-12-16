@@ -13,9 +13,13 @@ using namespace boost::numeric::ublas;
 using namespace boost::math::differentiation;
 
 //#include "utils.hpp"
+#include "utils/grid.hpp"
 #include "external_field.hpp"
 
-class GrapheneModel{
+#include "graphenemodel.hpp"
+
+class GrapheneModel:
+public Graphene{
     friend class WFs;
     friend class WFs_grid;
     typedef matrix<complex_t> state_type;
@@ -29,44 +33,7 @@ public:
     _Td(Td),
     _Ex{Ex},_Ey{Ey}{}
 
-    ~GrapheneModel(){}
-
-    void get_Dirac_points(std::vector<double>& Dirac_Kx, 
-                          std::vector<double>& Dirac_Ky,
-                          std::vector<int>&    Dirac_type) const{
-        double Kx=2.*M_PI/(sqrt(3.)*_a);
-        double Ky=2.*M_PI/(3.*_a);
-
-        //add K point
-        Dirac_Kx.push_back(Kx);
-        Dirac_Ky.push_back(Ky);
-        Dirac_type.push_back(0);
-
-        //add K' point
-        Dirac_Kx.push_back(Kx);
-        Dirac_Ky.push_back(-Ky);
-        Dirac_type.push_back(1);
-
-        //add K point
-        /*Dirac_Kx.push_back(-Kx);
-        Dirac_Ky.push_back(Ky);
-        Dirac_type.push_back(0);
-
-        //add K' point
-        Dirac_Kx.push_back(-Kx);
-        Dirac_Ky.push_back(-Ky);
-        Dirac_type.push_back(1);*/
-
-        //add K point
-        /*Dirac_Kx.push_back(4.*M_PI/(3.*_a));
-        Dirac_Ky.push_back(0.);
-        Dirac_type.push_back(0);
-
-        //add' K point
-        Dirac_Kx.push_back(-4.*M_PI/(3.*_a));
-        Dirac_Ky.push_back(0.);
-        Dirac_type.push_back(0);*/
-    }
+    virtual ~GrapheneModel(){}
 
     /*complex_t f(const double& kx, const double& ky) const{
         return exp(I*kx*_a/sqrt(3.))+2.*exp(-I*0.5*kx*_a/sqrt(3.))*cos(0.5*ky*_a);
@@ -165,9 +132,56 @@ public:
         std::cout<<"s: "<<_s<<std::endl;
     }
 
+    void write_energies_to_file(const std::string& fname, Grid2D* kxygrid) const{
+        std::ofstream out(fname);
+
+        size_t Nkx=kxygrid->size1();
+        size_t Nky=kxygrid->size2();
+
+        out<<std::scientific;
+        out<<std::setprecision(8);
+        for(size_t ikx=0; ikx<Nkx; ikx++){
+            for(size_t iky=0; iky<Nky; iky++){
+                double kx=(*kxygrid)(ikx,iky)[0];
+                double ky=(*kxygrid)(ikx,iky)[1];
+
+                out<<std::setw(20)<<kx<<std::setw(20)<<ky;
+                out<<std::setw(20)<<ep(kx,ky);
+                out<<std::setw(20)<<em(kx,ky);
+                out<<std::endl;
+            }
+        }
+
+        out.close();
+        return;
+    }
+
+    void write_dipoles_to_file(const std::string& fname, Grid2D* kxygrid) const{
+        std::ofstream out(fname);
+
+        size_t Nkx=kxygrid->size1();
+        size_t Nky=kxygrid->size2();
+
+        out<<std::scientific;
+        out<<std::setprecision(8);
+        for(size_t ikx=0; ikx<Nkx; ikx++){
+            for(size_t iky=0; iky<Nky; iky++){
+                double kx=(*kxygrid)(ikx,iky)[0];
+                double ky=(*kxygrid)(ikx,iky)[1];
+
+                out<<std::setw(20)<<kx<<std::setw(20)<<ky;
+                out<<std::setw(20)<<std::abs(dx(kx,ky));
+                out<<std::setw(20)<<std::abs(dy(kx,ky));
+                out<<std::endl;
+            }
+        }
+
+        out.close();
+        return;
+    }    
+
     void propagate(const state_type& rho, state_type& drhodt, const double t,
-                    const double& kx_t, const double& ky_t) const{
-                        
+                    const double& kx_t, const double& ky_t) const override{
         double emn[2]={ep(kx_t,ky_t),em(kx_t,ky_t)};
 
         matrix<complex_t> d_x(2,2);
@@ -209,6 +223,10 @@ public:
                 if(m!=n) drhodt(n,m)+=-(1./_Td)*rho(n,m);
             }
         }
+    }
+
+    size_t nstates() const override{
+        return 2;
     }
 private:
     double _a;

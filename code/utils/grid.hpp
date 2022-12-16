@@ -139,6 +139,12 @@ public:
     double integrate(const func_t& f) const override{
         return 0.;
     }
+
+    double get_dS() const override{
+        double dx=(*_xgrid)[1]-(*_xgrid)[0];
+        double dy=(*_ygrid)[1]-(*_ygrid)[0];
+        return dx*dy;
+    }    
 private:
     Grid1D* _xgrid;
     Grid1D* _ygrid;

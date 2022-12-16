@@ -1,7 +1,12 @@
 #include <iostream>
 #include <complex>
+#include <memory>
 
 #include "external_field.hpp"
+
+#include "utils/grid.hpp"
+
+#include "graphenemodel.hpp"
 
 #include <boost/numeric/ublas/matrix.hpp>
 using namespace boost::numeric::ublas;
@@ -13,6 +18,10 @@ using namespace boost::math::differentiation;
 #include <Eigen/Eigenvalues> 
 
 using Eigen::MatrixXcd;
+
+#include <datatable.h>
+#include <bspline.h>
+#include <bsplinebuilder.h>
 
 class HexagonalTBModel{
     friend class NGraphene;
@@ -53,12 +62,50 @@ public:
         auto const f_im_ad=f_im(kx,ky_ad);
 
         return f_re_ad.derivative(1)+I*f_im_ad.derivative(1);
+    }
+
+    void get_Dirac_points(std::vector<double>& Dirac_Kx, 
+                          std::vector<double>& Dirac_Ky,
+                          std::vector<int>&    Dirac_type) const{
+        double Kx=2.*M_PI/(sqrt(3.)*_a);
+        double Ky=2.*M_PI/(3.*_a);
+
+        //add K point
+        Dirac_Kx.push_back(Kx);
+        Dirac_Ky.push_back(Ky);
+        Dirac_type.push_back(0);
+
+        //add K' point
+        Dirac_Kx.push_back(Kx);
+        Dirac_Ky.push_back(-Ky);
+        Dirac_type.push_back(1);
+
+        //add K point
+        /*Dirac_Kx.push_back(-Kx);
+        Dirac_Ky.push_back(Ky);
+        Dirac_type.push_back(0);
+
+        //add K' point
+        Dirac_Kx.push_back(-Kx);
+        Dirac_Ky.push_back(-Ky);
+        Dirac_type.push_back(1);*/
+
+        //add K point
+        /*Dirac_Kx.push_back(4.*M_PI/(3.*_a));
+        Dirac_Ky.push_back(0.);
+        Dirac_type.push_back(0);
+
+        //add' K point
+        Dirac_Kx.push_back(-4.*M_PI/(3.*_a));
+        Dirac_Ky.push_back(0.);
+        Dirac_type.push_back(0);*/
     }    
 private:
     double _a;
 };
 
-class NGraphene{
+class NGraphene:
+public Graphene{
     typedef MatrixXcd matrix_t;
     typedef Eigen::Matrix2cd matrix2D_t;
     typedef Eigen::GeneralizedSelfAdjointEigenSolver<MatrixXcd> solver_t;
@@ -66,6 +113,7 @@ class NGraphene{
     typedef matrix<complex_t> state_type;
 public:
     NGraphene(HexagonalTBModel* tbm, const size_t& N,
+              Grid2D* kxygrid,
               double* eps,
               double* g,
               double* s,
@@ -73,15 +121,229 @@ public:
     _tbm{tbm},_N(N),
     _eps{eps},_g{g},_s{s},
     _Ex{Ex},_Ey{Ey}{
-        _H0=new matrix_t(2*N,2*N);
-        _S=new matrix_t(2*N,2*N);
+        size_t Nst=2*N;
 
-        _dH0_dx=new matrix_t(2*N,2*N);
-        _dH0_dy=new matrix_t(2*N,2*N);
+        matrix_t zero_matrix(Nst,Nst);
+        zero_matrix=matrix_t::Zero(Nst,Nst);
+
+        _H0=new matrix_t(2*N,2*N);
+        *_H0=zero_matrix;
+        _S=new matrix_t(2*N,2*N);
+        *_S=zero_matrix;
+
+        _dH0.push_back(new matrix_t(2*N,2*N));
+        _dH0.push_back(new matrix_t(2*N,2*N));
+        *_dH0[0]=zero_matrix;
+        *_dH0[1]=zero_matrix;
 
         _solver=new solver_t;
+
+        //fit energies and dipoles by splines
+        size_t Nkx=kxygrid->size1();
+        size_t Nky=kxygrid->size2();
+
+        double xmin=(*kxygrid)(0,0)[0];
+        double ymin=(*kxygrid)(0,Nky-1)[1];
+        double xmax=(*kxygrid)(Nkx-1,Nky-1)[0];
+        double ymax=(*kxygrid)(Nkx-1,0)[1];
+
+        auto kx_grid=create_grid(xmin,xmax,Nkx,0);
+        auto ky_grid=create_grid(ymin,ymax,Nky,0);
+
+        SPLINTER::DenseVector kxky(2);
+        std::vector<SPLINTER::DataTable> e_data(Nst);
+        int Ndip=int(Nst*(Nst-1)/2);
+        std::vector<SPLINTER::DataTable> d_data_x(Ndip);
+        std::vector<SPLINTER::DataTable> d_data_y(Ndip);
+
+        for(size_t ikx=0; ikx<Nkx; ikx++){
+            for(size_t iky=0; iky<Nky; iky++){
+                double kx=kx_grid[ikx];
+                double ky=ky_grid[iky];
+
+                this->solve(kx,ky);
+                auto evals=_solver->eigenvalues();
+                auto evecs=_solver->eigenvalues();
+
+                kxky(0)=kx;
+                kxky(1)=ky;
+
+                //std::cout<<kx<<" "<<ky<<" ";
+
+                //std::cout<<"evals: "<<std::endl;
+                //std::cout<<evals<<std::endl;
+                //std::cout<<"evecs: "<<std::endl;
+                //std::cout<<evecs<<std::endl;
+
+                size_t indx=0;
+                for(size_t ist=0; ist<Nst; ist++){
+                    e_data[ist].addSample(kxky,evals[ist]);
+                    for(size_t jst=ist+1; jst<Nst; jst++){
+                        double dip_x=this->computeDipole(ist,jst,0);
+                        double dip_y=this->computeDipole(ist,jst,1);
+
+                        d_data_x[indx].addSample(kxky,dip_x);
+                        d_data_y[indx].addSample(kxky,dip_y);
+
+                        //std::cout<<dip_x<<" ";
+                        //std::cout<<dip_y<<" ";
+
+                        indx++;
+                    }
+                }
+                //std::cout<<std::endl;
+            }
+        }
+
+        //fit the states
+        size_t indx=0;
+        for(size_t ist=0; ist<Nst; ist++){
+            std::cout<<"Interpolation of state "<<ist+1<<" by BSplines"<<std::endl;
+            e_spl.push_back(std::make_shared<SPLINTER::BSpline>(SPLINTER::BSpline::Builder(e_data[ist]).degree(1).build()));
+            for(size_t jst=ist+1; jst<Nst; jst++){
+                d_spl_x.push_back(std::make_shared<SPLINTER::BSpline>(SPLINTER::BSpline::Builder(d_data_x[indx]).degree(1).build()));
+                d_spl_y.push_back(std::make_shared<SPLINTER::BSpline>(SPLINTER::BSpline::Builder(d_data_y[indx]).degree(1).build()));
+                indx++;
+            }            
+        }
+
+        /*double kx=0.;
+        double ky=0.0;
+        kxky(0)=kx;
+        kxky(1)=ky;
+        for(size_t ist=0; ist<Nstates; ist++){
+            //double res=e_spl[ist].eval(kxky);//this->spl_evaluate(e_spl[ist],kx,ky);
+            double res=this->spl_evaluate(*e_spl[ist],kx,ky);
+            std::cout<<ist<<" "<<res<<std::endl;
+        }*/
     }
 
+    void propagate(const state_type& rho, state_type& drhodt, const double t,
+                const double& kx_t, const double& ky_t) const override{
+        size_t Nst=2*_N;
+
+        std::vector<double> emn(Nst);
+        for(size_t ist=0; ist<Nst; ist++){
+            emn[ist]=this->spl_evaluate(*e_spl[ist],kx_t,ky_t);
+        }
+
+        //this->solve(kx_t,ky_t);
+        //auto emn=this->getEnergies();
+
+        matrix<complex_t> d_x(Nst,Nst);
+        matrix<complex_t> d_y(Nst,Nst);
+
+        size_t indx=0;
+        for(size_t ist=0; ist<Nst; ist++){
+            for(size_t jst=ist+1; jst<Nst; jst++){
+                d_x(ist,jst)=this->spl_evaluate(*d_spl_x[indx],kx_t,ky_t);
+                d_x(jst,ist)=d_x(ist,jst);
+
+                d_y(ist,jst)=this->spl_evaluate(*d_spl_y[indx],kx_t,ky_t);
+                d_y(jst,ist)=d_y(ist,jst);
+
+                indx++;
+            }
+        }
+
+        //auto comm_x=prod(d_x,rho)-prod(rho,d_x);
+        //auto comm_y=prod(d_y,rho)-prod(rho,d_y);
+
+        for(size_t n=0; n<Nst; n++){
+            for(size_t m=0; m<Nst; m++){
+                complex_t res_x=0.;
+                complex_t res_y=0.;
+                for(size_t mp=0; mp<Nst; mp++){
+                    res_x+=d_x(mp,n)*rho(mp,m)-d_x(m,mp)*rho(n,mp);
+                    res_y+=d_y(mp,n)*rho(mp,m)-d_y(m,mp)*rho(n,mp);
+                }
+
+                //std::cout<<res_x<<" "<<res_y<<std::endl;
+
+                drhodt(n,m)=-I*(
+                    (emn[m]-emn[n])*rho(n,m)
+                    //-( ((*_Ex)(t)*d_x(m,n)+(*_Ey)(t)*d_y(m,n))*rho(m,m)
+                    //  -((*_Ex)(t)*std::conj(d_x(m,n))+(*_Ey)(t)*std::conj(d_y(m,n)))*rho(n,n)
+                    // )
+
+                    -(*_Ex)(t)*res_x-(*_Ey)(t)*res_y
+
+                    //-(*_Ex)(t)*comm_x(n,m)//-(*_Ey)(t)*comm_y(m,n)
+
+                );
+            }
+        }
+        return;
+    }
+
+    size_t nstates() const override{
+        return 2*_N;
+    }
+
+    void write_energies_to_file(const std::string& fname, Grid2D* kxygrid) const{
+        std::ofstream out(fname);
+
+        size_t Nkx=kxygrid->size1();
+        size_t Nky=kxygrid->size2();
+        size_t Nst=2*_N;
+
+        out<<std::scientific;
+        out<<std::setprecision(8);
+        for(size_t ikx=0; ikx<Nkx; ikx++){
+            for(size_t iky=0; iky<Nky; iky++){
+                double kx=(*kxygrid)(ikx,iky)[0];
+                double ky=(*kxygrid)(ikx,iky)[1];
+
+                out<<std::setw(20)<<kx<<std::setw(20)<<ky;
+                for(size_t ist=0; ist<Nst; ist++){
+                    double en=this->spl_evaluate(*e_spl[ist],kx,ky);
+                    out<<std::setw(20)<<en;
+                }
+                out<<std::endl;
+            }
+        }
+
+        out.close();
+        return;
+    }
+
+    void write_dipoles_to_file(const std::string& fname, Grid2D* kxygrid) const{
+        std::ofstream out(fname);
+
+        size_t Nkx=kxygrid->size1();
+        size_t Nky=kxygrid->size2();
+        size_t Nst=2*_N;
+
+        out<<std::scientific;
+        out<<std::setprecision(8);
+        for(size_t ikx=0; ikx<Nkx; ikx++){
+            for(size_t iky=0; iky<Nky; iky++){
+                double kx=(*kxygrid)(ikx,iky)[0];
+                double ky=(*kxygrid)(ikx,iky)[1];
+
+                this->solve(kx,ky);
+
+                out<<std::setw(20)<<kx<<std::setw(20)<<ky;
+                size_t indx=0;
+                for(size_t ist=0; ist<Nst; ist++){
+                    for(size_t jst=ist+1; jst<Nst; jst++){
+                        //double dip_x=this->spl_evaluate(*d_spl_x[indx],kx,ky);
+                        //double dip_y=this->spl_evaluate(*d_spl_y[indx],kx,ky);
+                        double dip_x=this->computeDipole(ist,jst,0);
+                        double dip_y=this->computeDipole(ist,jst,1);
+                        out<<std::setw(20)<<dip_x;
+                        out<<std::setw(20)<<dip_y;
+                        indx++;
+                    }
+                }
+                out<<std::endl;
+            }
+        }
+
+        out.close();
+        return;
+    }
+//private:
     int solve(const double& kx, const double& ky) const{
         double epsA=_eps[0];
         double epsB=_eps[1];
@@ -131,8 +393,8 @@ public:
             _H0->block<2,2>(2*i,2*i)=Hii;
             _S->block<2,2>(2*i,2*i)=Sii;
 
-            _dH0_dx->block<2,2>(2*i,2*i)=dHii_dx;
-            _dH0_dy->block<2,2>(2*i,2*i)=dHii_dy;
+            _dH0[0]->block<2,2>(2*i,2*i)=dHii_dx;
+            _dH0[1]->block<2,2>(2*i,2*i)=dHii_dy;
 
             if(i<(_N-1)){
                 _H0->block<2,2>(2*i,2*(i+1))=Hij;
@@ -155,89 +417,49 @@ public:
         return 0;
     }
     
-    std::vector<double> getEnergies() const{
+    /*std::vector<double> getEnergies() const{
         auto evals=_solver->eigenvalues();
         std::vector<double> res(evals.data(),evals.data()+evals.rows()*evals.cols());
         return res;
-    }
+    }*/
 
-    double getDipole(const size_t& ist, const size_t& jst) const{
-        if(ist==jst){
-            return 0.;
-        }
-        else{
+    double computeDipole(const size_t& ist, const size_t& jst, const size_t& dir) const{
+        double res=0.;
+        if(ist!=jst){
             auto evals=_solver->eigenvalues();
             auto evecs=_solver->eigenvectors();
 
             double ei=evals(ist);
             double ej=evals(jst);
 
-            double dE=fabs(ei-ej);
+            auto veci=evecs.col(ist);
+            auto vecj=evecs.col(jst);
 
-            if(dE>=1.e-7){
-                auto veci=evecs.col(ist);
-                auto vecj=evecs.col(jst);
+            //complex_t dip=I*veci.dot(_S->inverse()*(*_dH0[dir])*vecj)/(ei-ej);
+            //complex_t dip=I*veci.dot((*_dH0[dir])*vecj)/(ei-ej);
+            //res=std::real(dip);
+            
+            //std::cout<<"S_inverse: "<<std::endl;
+            //std::cout<<_S->inverse()<<std::endl;
 
-                //complex_t dip=I*veci.dot(_S->inverse()*(*_dH0_dx)*vecj)/(ei-ej);
-                complex_t dip=I*veci.dot((*_dH0_dx)*vecj)/(ei-ej);
+            //std::cout<<"dH0: "<<std::endl;
+            //std::cout<<*_dH0[dir]<<std::endl;
 
-                return std::real(dip);
-            }
-            else{
-                return 1.;
-            }
+            complex_t tmp=I*veci.dot(_S->inverse()*(*_dH0[dir])*vecj);
+            res=-std::abs(tmp)/(ei-ej);
         }
+        return res;
     }
 
     //std::vector<double> 
 
-    void propagate(const state_type& rho, state_type& drhodt, const double t,
-                const double& kx_t, const double& ky_t) const{
-        size_t Nst=2*_N;
-
-        //this->solve(kx_t,ky_t);
-        auto emn=this->getEnergies();
-
-        matrix<complex_t> d_x(Nst,Nst);
-        matrix<complex_t> d_y(Nst,Nst);
-
-        for(size_t ist=0; ist<Nst; ist++){
-            for(size_t jst=0; jst<Nst; jst++){
-                d_x(ist,jst)=this->getDipole(ist,jst);
-                d_y(ist,jst)=d_x(ist,jst);
-            }
-        }
-
-        //auto comm_x=prod(d_x,rho)-prod(rho,d_x);
-        //auto comm_y=prod(d_y,rho)-prod(rho,d_y);
-
-        for(size_t n=0; n<Nst; n++){
-            for(size_t m=0; m<Nst; m++){
-                complex_t res_x=0.;
-                complex_t res_y=0.;
-                for(size_t mp=0; mp<Nst; mp++){
-                    res_x+=d_x(mp,n)*rho(mp,m)-d_x(m,mp)*rho(n,mp);
-                    res_y+=d_y(mp,n)*rho(mp,m)-d_y(m,mp)*rho(n,mp);
-                }
-
-                //std::cout<<res_x<<" "<<res_y<<std::endl;
-
-                drhodt(n,m)=-I*(
-                    (emn[m]-emn[n])*rho(n,m)
-                    //-( ((*_Ex)(t)*d_x(m,n)+(*_Ey)(t)*d_y(m,n))*rho(m,m)
-                    //  -((*_Ex)(t)*std::conj(d_x(m,n))+(*_Ey)(t)*std::conj(d_y(m,n)))*rho(n,n)
-                    // )
-
-                    -(*_Ex)(t)*res_x-(*_Ey)(t)*res_y
-
-                    //-(*_Ex)(t)*comm_x(n,m)//-(*_Ey)(t)*comm_y(m,n)
-
-                );
-            }
-        }
-        return;
+    double spl_evaluate(const SPLINTER::BSpline& spl, const double& kx, const double& ky) const{
+        SPLINTER::DenseVector kxky(2);
+        kxky(0)=kx;
+        kxky(1)=ky;
+        return spl.eval(kxky);
     }
-private:
+
     HexagonalTBModel* _tbm;
     size_t _N;
 
@@ -248,11 +470,14 @@ private:
     matrix_t* _H0;
     matrix_t* _S;
     
-    matrix_t* _dH0_dx;
-    matrix_t* _dH0_dy;
+    std::vector<matrix_t*> _dH0;
 
     solver_t* _solver;
 
     ExternalField* _Ex;
-    ExternalField* _Ey;    
+    ExternalField* _Ey;
+
+    std::vector<std::shared_ptr<SPLINTER::BSpline>> e_spl;
+    std::vector<std::shared_ptr<SPLINTER::BSpline>> d_spl_x;
+    std::vector<std::shared_ptr<SPLINTER::BSpline>> d_spl_y;
 };

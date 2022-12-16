@@ -31,7 +31,7 @@ link_directories("/home/ngolubev/Packages/libs/boost/1.80.0/lib")
 #INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIR})
 
 #Eigen
-set(Eigen_PATH "/home/u19/ngolubev/Packages/libs/Eigen/eigen-3.4.0")
+set(Eigen_PATH "/home/ngolubev/Packages/libs/Eigen/eigen-3.4.0")
 include_directories(${Eigen_PATH})
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
@@ -41,6 +41,10 @@ include_directories("../libs/mINI/src/")
 
 #uBLAS odeint
 include_directories("../libs/odeint/")
+
+#SPLINTER
+include_directories("~/Packages/libs/splinter/include/")
+link_directories("~/Packages/libs/splinter/build/")
 
 #add_library(
 #    ${PROJECT} SHARED
@@ -77,10 +81,10 @@ add_executable(
     "${CMAKE_CURRENT_SOURCE_DIR}/rspace.cpp"  
 )
 
-add_executable(
-    Nlayer.exe
-    "${CMAKE_CURRENT_SOURCE_DIR}/Nlayer.cpp"  
-)
+#add_executable(
+#    Nlayer.exe
+#    "${CMAKE_CURRENT_SOURCE_DIR}/Nlayer.cpp"  
+#)
 
 #add_executable(
 #    debug.exe
@@ -91,8 +95,11 @@ add_executable(
 target_link_libraries(main.exe PRIVATE "stdc++fs")
 target_link_libraries(analysis.exe PRIVATE "stdc++fs")
 target_link_libraries(rspace.exe PRIVATE "stdc++fs")
-target_link_libraries(Nlayer.exe PRIVATE "stdc++fs")
+#target_link_libraries(Nlayer.exe PRIVATE "stdc++fs")
 #target_link_libraries(debug.exe PRIVATE "stdc++fs")
+
+target_link_libraries(main.exe PUBLIC splinter-3-0)
+#target_link_libraries(Nlayer.exe PUBLIC splinter-3-0)
 
 find_package(OpenMP)
 if(OpenMP_CXX_FOUND)

@@ -2,13 +2,17 @@
 #define PARSER_HPP
 
 #include "mini/ini.h"
-#include "utils/utils.hpp"
+//#include "utils/utils.hpp"
 
 #include <string>
 #include <fstream>
 
 #include <filesystem>
 namespace fs=std::filesystem;
+
+enum class kgrid_types: unsigned int {ucell=0, kpoint};
+enum class rgrid_types: unsigned int {ucell=0, rectan};
+enum class models: unsigned int {hommelhoff=0, nlayer};
 
 struct Parameters{
     double tmin;
@@ -25,7 +29,7 @@ struct Parameters{
     double dky;
     size_t Nky;
 
-    int kgrid_type;
+    kgrid_types kgrid_type;
 
     size_t Nclx;
     size_t Ncly;
@@ -43,10 +47,13 @@ struct Parameters{
     double zmax;
     size_t Nz;        
 
-    int rgrid_type;
+    rgrid_types rgrid_type;
 
     double E0;
     std::string field_fname;
+
+    models model;
+    size_t nlayers;
 
     double a;
     double e2p;
@@ -128,14 +135,14 @@ public:
 
         std::string kgrid_type_str=ini.get("kgrid").get("type");
         trim(kgrid_type_str);
-        if(kgrid_type_str=="regular"){
-            _params.kgrid_type=regular;
+        if(kgrid_type_str=="kpoint"){
+            _params.kgrid_type=kgrid_types::kpoint;
         }
-        else if(kgrid_type_str=="quad"){
-            _params.kgrid_type=quad;
+        else if(kgrid_type_str=="ucell"){
+            _params.kgrid_type=kgrid_types::ucell;
         }
         else{
-            throw std::string("Wrong kgrid_type!");
+            throw std::string("The requested kgrid_type does not exist!");
         }
 
         //parse rgrid section
@@ -160,14 +167,14 @@ public:
 
         std::string rgrid_type_str=ini.get("rgrid").get("type");
         trim(rgrid_type_str);
-        if(rgrid_type_str=="regular"){
-            _params.rgrid_type=regular;
+        if(rgrid_type_str=="rectan"){
+            _params.rgrid_type=rgrid_types::rectan;
         }
         else if(rgrid_type_str=="ucell"){
-            _params.rgrid_type=ucell;
+            _params.rgrid_type=rgrid_types::ucell;
         }
         else{
-            throw std::string("Wrong rgrid_type!");
+            throw std::string("The requested rgrid_type does not exist!");
         }
 
         //parse field file
@@ -175,22 +182,42 @@ public:
         _params.field_fname=ini.get("field").get("fname");
 
         //parse model parameters
-        std::string a_str=ini.get("model").get("a");
+        std::string model_str=ini.get("system").get("model");
+        trim(model_str);
+        if(model_str=="hommelhoff"){
+            _params.model=models::hommelhoff;
+        }
+        else if(model_str=="nlayer"){
+            _params.model=models::nlayer;
+        }
+        else{
+            throw std::string("The requested model does not exist!");
+        }
+
+        std::string nlayers_str=ini.get("system").get("nlayers");
+        if(!nlayers_str.empty()){
+            _params.nlayers=std::stoi(nlayers_str); 
+        }
+        else{
+            _params.nlayers=1;
+        }
+
+        std::string a_str=ini.get("system").get("a");
         _params.a=std::stod(a_str)/au2A;
 
-        std::string e2p_str=ini.get("model").get("e2p");
+        std::string e2p_str=ini.get("system").get("e2p");
         _params.e2p=std::stod(e2p_str)/au2eV;
 
-        std::string gamma_str=ini.get("model").get("gamma");
+        std::string gamma_str=ini.get("system").get("gamma");
         _params.gamma=std::stod(gamma_str)/au2eV;
 
-        std::string s_str=ini.get("model").get("s");
+        std::string s_str=ini.get("system").get("s");
         _params.s=std::stod(s_str);
 
-        std::string Z_str=ini.get("model").get("Z");
+        std::string Z_str=ini.get("system").get("Z");
         _params.Z=std::stod(Z_str);
 
-        std::string Td_str=ini.get("model").get("Td");
+        std::string Td_str=ini.get("system").get("Td");
         _params.Td=std::stod(Td_str)/au2fs;
 
         //parse output

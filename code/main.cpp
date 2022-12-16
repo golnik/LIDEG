@@ -10,6 +10,7 @@
 #include "utils/grid.hpp"
 #include "parser.hpp"
 #include "external_field.hpp"
+#include "graphenemodel.hpp"
 #include "model1/graphene.hpp"
 #include "model1/WFs.hpp"
 #include "model2/graphene2.hpp"
@@ -76,59 +77,68 @@ int main(int argc, char** argv){
         ExternalField* Efield_x=new ExternalFieldFromData(Edata_x_fit,t0_fit,dt_fit,params.E0);
         ExternalField* Efield_y=new ExternalFieldFromData(Edata_y_fit,t0_fit,dt_fit,params.E0);
 
-        //create graphene model
-        GrapheneModel gm(params.a,params.e2p,params.gamma,params.s,params.Td,
-                         Efield_x,Efield_y);
+        HexagonalTBModel* tb=new HexagonalTBModel(params.a);
+        Graphene* gm;
 
-        GrapheneModel2 gm2(params.a,params.e2p,params.gamma,params.s,
-                           Efield_x,Efield_y,
-                           Afield_x,Afield_y);
-
-        //create N-layer graphene model
-        /*HexagonalTBModel* tb=new HexagonalTBModel(params.a);
-        
-        double eps[]={params.e2p,params.e2p};
-        double g[]={params.gamma,0.39/au2eV};
-        double s[]={params.s,0.0};
-        size_t Nlayers=1;
-        NGraphene ngm(tb,Nlayers,eps,g,s,
-                      Efield_x,Efield_y);
-        */
-       
-        size_t Nstates=2*Nlayers;
-
-        //create K and Kp points
-        std::vector<double> Dirac_Kx;
-        std::vector<double> Dirac_Ky;
-        std::vector<int> Dirac_type;
-
-        gm.get_Dirac_points(Dirac_Kx,Dirac_Ky,Dirac_type);
-
-        //grid
+        //create kgrid
         Grid2D* kxygrid;
 
-        //we simulate dynamics at K point only
-        double Kx=Dirac_Kx[0];
-        double Ky=Dirac_Ky[0];
+        if(params.kgrid_type==kgrid_types::kpoint){
+            //create K and Kp points
+            std::vector<double> Dirac_Kx;
+            std::vector<double> Dirac_Ky;
+            std::vector<int> Dirac_type;
 
-        //create k grids
+            tb->get_Dirac_points(Dirac_Kx,Dirac_Ky,Dirac_type);
 
-        Grid1D* kx_grid;
-        Grid1D* ky_grid;
+            //we simulate dynamics at K point only
+            double Kx=Dirac_Kx[0];
+            double Ky=Dirac_Ky[0];
 
-        kx_grid=new RegularGrid1D(Kx-params.dkx,Kx+params.dkx,params.Nkx);
-        ky_grid=new RegularGrid1D(Ky-params.dky,Ky+params.dky,params.Nky);
+            Grid1D* kx_grid=new RegularGrid1D(Kx-params.dkx,Kx+params.dkx,params.Nkx);
+            Grid1D* ky_grid=new RegularGrid1D(Ky-params.dky,Ky+params.dky,params.Nky);
 
-        //kxygrid=new RegularGrid2D(kx_grid,ky_grid);
+            kxygrid=new RegularGrid2D(kx_grid,ky_grid);
+        }
+        else if(params.kgrid_type==kgrid_types::ucell){
+            double Ox=0.;
+            double Oy=0.;
+            double b1x=2.*M_PI/(sqrt(3.)*params.a);
+            double b1y=2.*M_PI/(params.a);
+            double b2x=b1x;
+            double b2y=-b1y;
 
-        double Ox=0.;
-        double Oy=0.;
-        double b1x=2.*M_PI/(sqrt(3.)*params.a);
-        double b1y=2.*M_PI/(params.a);
-        double b2x=b1x;
-        double b2y=-b1y;
+            kxygrid=new UCellGrid2D(Ox,Oy,b1x,b1y,params.Nkx,b2x,b2y,params.Nky);
+        }
 
-        kxygrid=new UCellGrid2D(Ox,Oy,b1x,b1y,params.Nkx,b2x,b2y,params.Nky);
+        if(params.model==models::hommelhoff){
+            gm=new GrapheneModel(params.a,params.e2p,params.gamma,params.s,params.Td,Efield_x,Efield_y);
+        }
+        else if(params.model==models::nlayer){            
+            double eps[]={params.e2p,params.e2p};
+            double g[]={params.gamma,0.39/au2eV};
+            double s[]={params.s,0.0};
+
+            gm=new NGraphene(tb,params.nlayers,
+                        kxygrid,
+                        eps,g,s,
+                        Efield_x,Efield_y);
+        }
+        else{
+            //GrapheneModel2 gm2(params.a,params.e2p,params.gamma,params.s,
+            //                Efield_x,Efield_y,
+            //                Afield_x,Afield_y);
+        }
+
+        size_t Nstates=gm->nstates();
+
+        //gm.write_energies_to_file("en_ref.dat",kxygrid);
+        //gm.write_dipoles_to_file("dip_ref.dat",kxygrid);
+
+        //ngm.write_energies_to_file("en_nlayer.dat",kxygrid);
+        //ngm.write_dipoles_to_file("dip_nlayer.dat",kxygrid);
+
+        //exit(0);
 
         //auto kx_grid=create_grid(Kx-params.dkx,Kx+params.dkx,params.Nkx,params.kgrid_type);
         //auto ky_grid=create_grid(Ky-params.dky,Ky+params.dky,params.Nky,params.kgrid_type);
@@ -165,9 +175,9 @@ int main(int argc, char** argv){
         matrix<state_type> rho_t_kxky(params.Nkx,params.Nky);
         for(size_t ikx=0; ikx<params.Nkx; ikx++){
             for(size_t iky=0; iky<params.Nky; iky++){
-                rho_t_kxky(ikx,iky)=state_type(2,2);
-                for(size_t i=0; i<2; i++){
-                    for(size_t j=0; j<2; j++){
+                rho_t_kxky(ikx,iky)=state_type(Nstates,Nstates);
+                for(size_t i=0; i<Nstates; i++){
+                    for(size_t j=0; j<Nstates; j++){
                         rho_t_kxky(ikx,iky)(i,j)=0.;
                     }
                 }
@@ -196,11 +206,11 @@ int main(int argc, char** argv){
                     double kx0=(*kxygrid)(ikx,iky)[0];
                     double ky0=(*kxygrid)(ikx,iky)[1];
 
-                    auto system=[gm,gm2,kx0,ky0,Afield_x,Afield_y](const state_type& rho, state_type& drhodt, const double t){
+                    auto system=[&gm,kx0,ky0,Afield_x,Afield_y](const state_type& rho, state_type& drhodt, const double t){
                         double kxt=kx0+(*Afield_x)(t);
                         double kyt=ky0+(*Afield_y)(t);
 
-                        gm.propagate(rho,drhodt,t,kxt,kyt);
+                        gm->propagate(rho,drhodt,t,kxt,kyt);
                         //gm2.propagate(rho,drhodt,t,kx0,ky0);
                         //ngm.propagate(rho,drhodt,t,kxt,kyt);
                         return;
@@ -222,23 +232,28 @@ int main(int argc, char** argv){
             dens_t_out<<std::scientific;
             //rho_t_out<<std::fixed;
             dens_t_out<<std::setprecision(8);
-            dens_t_out<<"#"<<std::setw(19)<<"rho_vv";
-            dens_t_out<<     std::setw(20)<<"rho_cc";
-            dens_t_out<<     std::setw(20)<<"Re{rho_cv}";
-            dens_t_out<<     std::setw(20)<<"Im{rho_cv}";
-            dens_t_out<<     std::setw(20)<<"abs{rho_cv}";
-            dens_t_out<<     std::setw(20)<<"arg{rho_cv}";
+            //dens_t_out<<"#"<<std::setw(19)<<"rho_vv";
+            //dens_t_out<<     std::setw(20)<<"rho_cc";
+            //dens_t_out<<     std::setw(20)<<"Re{rho_cv}";
+            //dens_t_out<<     std::setw(20)<<"Im{rho_cv}";
+            //dens_t_out<<     std::setw(20)<<"abs{rho_cv}";
+            //dens_t_out<<     std::setw(20)<<"arg{rho_cv}";
+            dens_t_out<<"#";
+            for(size_t ist=0; ist<Nstates; ist++){
+                dens_t_out<<std::setw(20)<<"rho["<<ist<<"]";
+            }
+            for(size_t ist=0; ist<Nstates; ist++){
+                for(size_t jst=ist+1; jst<Nstates; jst++){
+                    dens_t_out<<std::setw(20)<<"Re{rho["<<ist<<"]["<<jst<<"]}";
+                    dens_t_out<<std::setw(20)<<"Im{rho["<<ist<<"]["<<jst<<"]}";
+                }
+            }
             dens_t_out<<std::endl;
             for(size_t ikx=0; ikx<params.Nkx; ikx++){
                 for(size_t iky=0; iky<params.Nky; iky++){
-                    double rho_vv=std::abs(rho_t_kxky(ikx,iky)(0,0));
+                    /*double rho_vv=std::abs(rho_t_kxky(ikx,iky)(0,0));
                     double rho_cc=std::abs(rho_t_kxky(ikx,iky)(1,1));
                     complex_t rho_cv=rho_t_kxky(ikx,iky)(0,1);
-
-                    /*double rho_vv=std::norm(rho_t_kxky(ikx,iky)(0,0));
-                    double rho_cc=std::norm(rho_t_kxky(ikx,iky)(1,1));
-                    complex_t rho_cv=std::conj(rho_t_kxky(ikx,iky)(0,0))
-                                    *rho_t_kxky(ikx,iky)(1,1);*/
 
                     //rho_t_out<<kx_grid[ikx]<<" "<<ky_grid[iky]<<" ";
                     dens_t_out<<std::setw(20)<<rho_vv;
@@ -246,7 +261,20 @@ int main(int argc, char** argv){
                     dens_t_out<<std::setw(20)<<std::real(rho_cv);
                     dens_t_out<<std::setw(20)<<std::imag(rho_cv);
                     dens_t_out<<std::setw(20)<<std::abs(rho_cv);
-                    dens_t_out<<std::setw(20)<<std::arg(rho_cv);
+                    dens_t_out<<std::setw(20)<<std::arg(rho_cv);*/
+
+                    for(size_t ist=0; ist<Nstates; ist++){
+                        double rho=std::abs(rho_t_kxky(ikx,iky)(ist,ist));
+                        dens_t_out<<std::setw(20)<<rho;
+                    }
+                    for(size_t ist=0; ist<Nstates; ist++){
+                        for(size_t jst=ist+1; jst<Nstates; jst++){
+                            double re=std::real(rho_t_kxky(ikx,iky)(ist,jst));
+                            double im=std::imag(rho_t_kxky(ikx,iky)(ist,jst));
+                            dens_t_out<<std::setw(20)<<re;
+                            dens_t_out<<std::setw(20)<<im;
+                        }
+                    }
 
                     dens_t_out<<std::endl;
                 }
