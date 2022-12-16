@@ -110,71 +110,108 @@ int main(int argc, char** argv){
         tfile_out<<std::setw(20)<<"Ay";
         tfile_out<<std::setw(20)<<"Ex";
         tfile_out<<std::setw(20)<<"Ey";
-        tfile_out<<std::setw(20)<<"dens_vv";
-        tfile_out<<std::setw(20)<<"dens_cc";
-        tfile_out<<std::setw(20)<<"Re{dens_cv}";
-        tfile_out<<std::setw(20)<<"Im{dens_cv}";
-        tfile_out<<std::setw(20)<<"Jx_intra";
-        tfile_out<<std::setw(20)<<"Jy_intra";
-        tfile_out<<std::setw(20)<<"Jx_inter";
-        tfile_out<<std::setw(20)<<"Jy_inter";
+
+        //tfile_out<<std::setw(20)<<"dens_vv";
+        //tfile_out<<std::setw(20)<<"dens_cc";
+        //tfile_out<<std::setw(20)<<"Re{dens_cv}";
+        //tfile_out<<std::setw(20)<<"Im{dens_cv}";
+        //tfile_out<<std::setw(20)<<"Jx_intra";
+        //tfile_out<<std::setw(20)<<"Jy_intra";
+        //tfile_out<<std::setw(20)<<"Jx_inter";
+        //tfile_out<<std::setw(20)<<"Jy_inter";
+
+
+        size_t col=6;
+        for(size_t ist=0; ist<Nstates; ist++){
+            std::string pop_str="dens["+std::to_string(ist+1)+"]("+std::to_string(col)+")";
+            tfile_out<<std::setw(20)<<pop_str;
+            col++;
+        }
+
+        for(size_t ist=0; ist<Nstates; ist++){
+            for(size_t jst=ist+1; jst<Nstates; jst++){
+                std::string coh_re_str="coh_re["+std::to_string(ist+1)+","+std::to_string(jst+1)+"]("+std::to_string(col)+")";
+                col++;
+                std::string coh_im_str="coh_im["+std::to_string(ist+1)+","+std::to_string(jst+1)+"]("+std::to_string(col)+")";
+                col++;
+
+                tfile_out<<std::setw(20)<<coh_re_str;
+                tfile_out<<std::setw(20)<<coh_im_str;
+            }
+        }
+
         tfile_out<<std::endl;
 
+        std::vector<matrix_t> dens_data(Nstates);
+        std::vector<matrix_t> coh_re_data(Nstates*(Nstates-1)/2);
+        std::vector<matrix_t> coh_im_data(Nstates*(Nstates-1)/2);
+
+        std::vector<double> pops(Nstates);
+        std::vector<complex_t> cohs(Nstates*(Nstates-1)/2);
+
         for(size_t it=0; it<params.Nt; it++){
+            double time=tgrid[it];
+
             //read density from file
             std::string dens_t_fname=params.densfile_fname;
             replace(dens_t_fname,"%it",boost::str(boost::format("%06d") % (it+1)));
 
             std::cout<<dens_t_fname<<std::endl;
 
-            matrix_t dens_vv=read_2D_from_file<matrix_t>(dens_t_fname,0,params.Nkx,params.Nky);
-            matrix_t dens_cc=read_2D_from_file<matrix_t>(dens_t_fname,1,params.Nkx,params.Nky);
-            matrix_t dens_cv_re=read_2D_from_file<matrix_t>(dens_t_fname,2,params.Nkx,params.Nky);
-            matrix_t dens_cv_im=read_2D_from_file<matrix_t>(dens_t_fname,3,params.Nkx,params.Nky);
+            size_t col=0;
+            for(size_t ist=0; ist<Nstates; ist++){
+                dens_data[ist]=read_2D_from_file<matrix_t>(dens_t_fname,col,params.Nkx,params.Nky);
+                col++;
+            }
 
-            double time=tgrid[it];
-
-            //integrate over kgrids
-            double pop0=0.;
-            double pop1=0.;
-            complex_t coh=0.;
-            double Jra[2]={0.,0.};
-            double Jer[2]={0.,0.};
+            size_t indx=0;
+            for(size_t ist=0; ist<Nstates; ist++){
+                for(size_t jst=ist+1; jst<Nstates; jst++){
+                    coh_re_data[indx]=read_2D_from_file<matrix_t>(dens_t_fname,col,params.Nkx,params.Nky);
+                    col++;
+                    coh_im_data[indx]=read_2D_from_file<matrix_t>(dens_t_fname,col,params.Nkx,params.Nky);
+                    col++;
+                    indx++;
+                }
+            }
 
             //integrate band populations
-            integrator->trapz(
-                [dens_vv](const size_t& ix, const size_t& iy){
-                    return dens_vv(ix,iy);
-                },
-                pop0
-            );
-
-            integrator->trapz(
-                [dens_cc](const size_t& ix, const size_t& iy){
-                    return dens_cc(ix,iy);
-                },
-                pop1
-            );                
-
-            double coh_re=0.;
-            double coh_im=0.;
+            for(size_t ist=0; ist<Nstates; ist++){
+                pops[ist]=0.;
+                integrator->trapz(
+                    [ist,dens_data](const size_t& ikx, const size_t& iky){
+                        return dens_data[ist](ikx,iky);
+                    },
+                    pops[ist]
+                );
+            }
 
             //integrate coherences
-            integrator->trapz(
-                [dens_cv_re](const size_t& ix, const size_t& iy){
-                    return dens_cv_re(ix,iy);
-                },
-                coh_re
-            );
+            indx=0;
+            for(size_t ist=0; ist<Nstates; ist++){
+                for(size_t jst=ist+1; jst<Nstates; jst++){
+                    double coh_re=0.;
+                    double coh_im=0.;
 
-            integrator->trapz(
-                [dens_cv_im](const size_t& ix, const size_t& iy){
-                    return dens_cv_im(ix,iy);
-                },
-                coh_im
-            );
+                    integrator->trapz(
+                        [indx,coh_re_data](const size_t& ikx, const size_t& iky){
+                            return coh_re_data[indx](ikx,iky);
+                        },
+                        coh_re
+                    );
 
-            coh+=coh_re+I*coh_im;
+                    integrator->trapz(
+                        [indx,coh_im_data](const size_t& ikx, const size_t& iky){
+                            return coh_im_data[indx](ikx,iky);
+                        },
+                        coh_im
+                    );
+
+                    cohs[ist]=coh_re+I*coh_im;
+
+                    indx++;
+                }
+            }
 
             /*for(int dir=0; dir<2; dir++){
                 Jra[dir]+=kxygrid->integrate(
@@ -237,14 +274,28 @@ int main(int argc, char** argv){
             tfile_out<<std::setw(20)<<(*Afield_y)(time);
             tfile_out<<std::setw(20)<<(*Efield_x)(time);
             tfile_out<<std::setw(20)<<(*Efield_y)(time);
-            tfile_out<<std::setw(20)<<pop0/SBZ;
-            tfile_out<<std::setw(20)<<pop1/SBZ;
-            tfile_out<<std::setw(20)<<std::real(coh)/SBZ;
-            tfile_out<<std::setw(20)<<std::imag(coh)/SBZ;
-            tfile_out<<std::setw(20)<<Jra[0];
-            tfile_out<<std::setw(20)<<Jra[1];
-            tfile_out<<std::setw(20)<<Jer[0];
-            tfile_out<<std::setw(20)<<Jer[1];
+
+            for(size_t ist=0; ist<Nstates; ist++){
+                tfile_out<<std::setw(20)<<pops[ist]/SBZ;
+            }
+
+            indx=0;
+            for(size_t ist=0; ist<Nstates; ist++){
+                for(size_t jst=ist+1; jst<Nstates; jst++){
+                    tfile_out<<std::setw(20)<<std::real(cohs[indx])/SBZ;
+                    tfile_out<<std::setw(20)<<std::imag(cohs[indx])/SBZ;
+                    indx++;
+                }
+            }
+
+            //tfile_out<<std::setw(20)<<pop0/SBZ;
+            //tfile_out<<std::setw(20)<<pop1/SBZ;
+            //tfile_out<<std::setw(20)<<std::real(coh)/SBZ;
+            //tfile_out<<std::setw(20)<<std::imag(coh)/SBZ;
+            //tfile_out<<std::setw(20)<<Jra[0];
+            //tfile_out<<std::setw(20)<<Jra[1];
+            //tfile_out<<std::setw(20)<<Jer[0];
+            //tfile_out<<std::setw(20)<<Jer[1];
             tfile_out<<std::endl;
         }
         tfile_out.close();

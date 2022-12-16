@@ -132,30 +132,6 @@ int main(int argc, char** argv){
 
         size_t Nstates=gm->nstates();
 
-        //gm.write_energies_to_file("en_ref.dat",kxygrid);
-        //gm.write_dipoles_to_file("dip_ref.dat",kxygrid);
-
-        //ngm.write_energies_to_file("en_nlayer.dat",kxygrid);
-        //ngm.write_dipoles_to_file("dip_nlayer.dat",kxygrid);
-
-        //exit(0);
-
-        //auto kx_grid=create_grid(Kx-params.dkx,Kx+params.dkx,params.Nkx,params.kgrid_type);
-        //auto ky_grid=create_grid(Ky-params.dky,Ky+params.dky,params.Nky,params.kgrid_type);
-
-        //write grids to file
-        /*std::ofstream grid_out(params.kgfile_fname);
-        //write kx grid
-        grid_out<<kx_grid->size()<<std::endl;
-        for(size_t ikx=0; ikx<params.Nkx; ikx++)
-            grid_out<<(*kx_grid)[ikx]-Kx<<" ";
-        grid_out<<std::endl;
-        grid_out<<ky_grid->size()<<std::endl;
-        for(size_t iky=0; iky<params.Nky; iky++)
-            grid_out<<(*ky_grid)[iky]-Ky<<" ";
-        grid_out<<std::endl;  
-        grid_out.close();*/
-
         //write grids to file
         std::ofstream grid_out(params.kgfile_fname);
         grid_out<<params.Nkx*params.Nky<<std::endl;
@@ -232,37 +208,33 @@ int main(int argc, char** argv){
             dens_t_out<<std::scientific;
             //rho_t_out<<std::fixed;
             dens_t_out<<std::setprecision(8);
-            //dens_t_out<<"#"<<std::setw(19)<<"rho_vv";
-            //dens_t_out<<     std::setw(20)<<"rho_cc";
-            //dens_t_out<<     std::setw(20)<<"Re{rho_cv}";
-            //dens_t_out<<     std::setw(20)<<"Im{rho_cv}";
-            //dens_t_out<<     std::setw(20)<<"abs{rho_cv}";
-            //dens_t_out<<     std::setw(20)<<"arg{rho_cv}";
+
+            //write file header
             dens_t_out<<"#";
+            
+            size_t col=1;
             for(size_t ist=0; ist<Nstates; ist++){
-                dens_t_out<<std::setw(20)<<"rho["<<ist<<"]";
+                std::string pop_str="dens["+std::to_string(ist+1)+"]("+std::to_string(col)+")";
+                dens_t_out<<std::setw(20)<<pop_str;
+                col++;
             }
+
             for(size_t ist=0; ist<Nstates; ist++){
                 for(size_t jst=ist+1; jst<Nstates; jst++){
-                    dens_t_out<<std::setw(20)<<"Re{rho["<<ist<<"]["<<jst<<"]}";
-                    dens_t_out<<std::setw(20)<<"Im{rho["<<ist<<"]["<<jst<<"]}";
+                    std::string coh_re_str="Re{coh["+std::to_string(ist+1)+","+std::to_string(jst+1)+"]("+std::to_string(col)+")}";
+                    col++;
+                    std::string coh_im_str="Im{coh["+std::to_string(ist+1)+","+std::to_string(jst+1)+"]("+std::to_string(col)+")}";
+                    col++;
+
+                    dens_t_out<<std::setw(20)<<coh_re_str;
+                    dens_t_out<<std::setw(20)<<coh_im_str;
                 }
             }
             dens_t_out<<std::endl;
+
+            //write data
             for(size_t ikx=0; ikx<params.Nkx; ikx++){
                 for(size_t iky=0; iky<params.Nky; iky++){
-                    /*double rho_vv=std::abs(rho_t_kxky(ikx,iky)(0,0));
-                    double rho_cc=std::abs(rho_t_kxky(ikx,iky)(1,1));
-                    complex_t rho_cv=rho_t_kxky(ikx,iky)(0,1);
-
-                    //rho_t_out<<kx_grid[ikx]<<" "<<ky_grid[iky]<<" ";
-                    dens_t_out<<std::setw(20)<<rho_vv;
-                    dens_t_out<<std::setw(20)<<rho_cc;
-                    dens_t_out<<std::setw(20)<<std::real(rho_cv);
-                    dens_t_out<<std::setw(20)<<std::imag(rho_cv);
-                    dens_t_out<<std::setw(20)<<std::abs(rho_cv);
-                    dens_t_out<<std::setw(20)<<std::arg(rho_cv);*/
-
                     for(size_t ist=0; ist<Nstates; ist++){
                         double rho=std::abs(rho_t_kxky(ikx,iky)(ist,ist));
                         dens_t_out<<std::setw(20)<<rho;
