@@ -69,6 +69,8 @@ struct Parameters{
     std::string densfile_fname;
     std::string rhofile_fname;
     std::string afile_fname;
+    std::string pkfile_fname;
+    std::string prfile_fname;
 
     void print(std::ostream& out) const{
         out<<tmin<<" "<<tmax<<" "<<Nt<<std::endl;
@@ -240,6 +242,12 @@ public:
 
         fs::path afile_path(_params.outdir);
         _params.afile_fname=(afile_path/=ini.get("output").get("afile")).c_str();        
+
+        fs::path pkfile_path(_params.outdir);
+        _params.pkfile_fname=(pkfile_path/=ini.get("output").get("pkfile")).c_str();
+
+        fs::path prfile_path(_params.outdir);
+        _params.prfile_fname=(prfile_path/=ini.get("output").get("prfile")).c_str();        
     }
 private:
     Parameters& _params;

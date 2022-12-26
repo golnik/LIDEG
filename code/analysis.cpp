@@ -111,15 +111,10 @@ int main(int argc, char** argv){
         tfile_out<<std::setw(20)<<"Ex";
         tfile_out<<std::setw(20)<<"Ey";
 
-        //tfile_out<<std::setw(20)<<"dens_vv";
-        //tfile_out<<std::setw(20)<<"dens_cc";
-        //tfile_out<<std::setw(20)<<"Re{dens_cv}";
-        //tfile_out<<std::setw(20)<<"Im{dens_cv}";
-        //tfile_out<<std::setw(20)<<"Jx_intra";
-        //tfile_out<<std::setw(20)<<"Jy_intra";
-        //tfile_out<<std::setw(20)<<"Jx_inter";
-        //tfile_out<<std::setw(20)<<"Jy_inter";
-
+        tfile_out<<std::setw(20)<<"Jx_intra";
+        tfile_out<<std::setw(20)<<"Jy_intra";
+        tfile_out<<std::setw(20)<<"Jx_inter";
+        tfile_out<<std::setw(20)<<"Jy_inter";
 
         size_t col=6;
         for(size_t ist=0; ist<Nstates; ist++){
@@ -213,67 +208,83 @@ int main(int argc, char** argv){
                 }
             }
 
-            /*for(int dir=0; dir<2; dir++){
-                Jra[dir]+=kxygrid->integrate(
-                    [dens_vv,dens_cc,
+            //integrate intraband current
+            double Jra[2]={0.,0.};
+            for(int dir=0; dir<2; dir++){
+                integrator->trapz(
+                    [dens_data,
                     kxygrid,
                     time,
                     Afield_x,Afield_y,
                     gm,
-                    dir](const size_t& ikx, const size_t& iky){
+                    dir,Nstates](const size_t& ikx, const size_t& iky){
                         double kx0=(*kxygrid)(ikx,iky)[0];
                         double ky0=(*kxygrid)(ikx,iky)[1];
 
                         double kxt=kx0+(*Afield_x)(time);
                         double kyt=ky0+(*Afield_y)(time);
 
-                        if(dir==0){
-                            return 0.;
-                            //return gm.px_vv(kxt,kyt)*dens_vv(ikx,iky)
-                            //      +gm.px_cc(kxt,kyt)*dens_cc(ikx,iky);
+                        double res=0.;
+                        for(size_t ist=0; ist<Nstates; ist++){
+                            //res+=gm->get_energy_grad(kxt,kyt,ist,dir)*dens_data[ist](ikx,iky);
                         }
-                        else if(dir==1){
-                            return 0.;
-                            //return gm.py_vv(kxt,kyt)*dens_vv(ikx,iky)
-                            //      +gm.py_cc(kxt,kyt)*dens_cc(ikx,iky);
-                        }
-                    }
+
+                        return res;
+                    },
+                    Jra[dir]
                 );
             }
 
+            //integrate interband current
+            double Jer[2]={0.,0.};
             for(int dir=0; dir<2; dir++){
-                Jer[dir]+=kxygrid->integrate(
-                    [dens_cv_re,dens_cv_im,
+                integrator->trapz(
+                    [coh_re_data,coh_im_data,
                     kxygrid,
                     time,
                     Afield_x,Afield_y,
                     gm,
-                    dir](const size_t& ikx, const size_t& iky){
+                    dir,Nstates](const size_t& ikx, const size_t& iky){
                         double kx0=(*kxygrid)(ikx,iky)[0];
                         double ky0=(*kxygrid)(ikx,iky)[1];
 
                         double kxt=kx0+(*Afield_x)(time);
                         double kyt=ky0+(*Afield_y)(time);
 
-                        complex_t dens_cv=dens_cv_re(ikx,iky)+I*dens_cv_im(ikx,iky);
+                        double res=0.;
 
-                        if(dir==0){
-                            return 0.;
-                            //return 2.*std::real(gm.px_cv(kxt,kyt)*dens_cv);
+                        size_t indx=0;
+                        for(size_t ist=0; ist<Nstates; ist++){
+                            for(size_t jst=ist+1; jst<Nstates; jst++){
+                                double re=coh_re_data[indx](ikx,iky);
+                                double im=coh_im_data[indx](ikx,iky);
+                                complex_t dens=re+I*im;
+
+                                complex_t P=I*(gm->get_energy(kxt,kyt,ist)-gm->get_energy(kxt,kyt,jst))
+                                    *gm->get_dipole(kxt,kyt,ist,jst,dir);
+
+                                res+=2.*std::real(P*dens);
+
+                                indx++;
+                            }
                         }
-                        else if(dir==1){
-                            return 0.;
-                            //return 2.*std::real(gm.py_cv(kxt,kyt)*dens_cv);
-                        }
-                    }
+
+                        return res;
+                    },
+                    Jer[dir]
                 );
-            }*/
+            }
 
             tfile_out<<std::setw(20)<<time*au2fs;
             tfile_out<<std::setw(20)<<(*Afield_x)(time);
             tfile_out<<std::setw(20)<<(*Afield_y)(time);
             tfile_out<<std::setw(20)<<(*Efield_x)(time);
             tfile_out<<std::setw(20)<<(*Efield_y)(time);
+
+            tfile_out<<std::setw(20)<<Jra[0];
+            tfile_out<<std::setw(20)<<Jra[1];
+            tfile_out<<std::setw(20)<<Jer[0];
+            tfile_out<<std::setw(20)<<Jer[1];
 
             for(size_t ist=0; ist<Nstates; ist++){
                 tfile_out<<std::setw(20)<<pops[ist]/SBZ;
@@ -288,14 +299,6 @@ int main(int argc, char** argv){
                 }
             }
 
-            //tfile_out<<std::setw(20)<<pop0/SBZ;
-            //tfile_out<<std::setw(20)<<pop1/SBZ;
-            //tfile_out<<std::setw(20)<<std::real(coh)/SBZ;
-            //tfile_out<<std::setw(20)<<std::imag(coh)/SBZ;
-            //tfile_out<<std::setw(20)<<Jra[0];
-            //tfile_out<<std::setw(20)<<Jra[1];
-            //tfile_out<<std::setw(20)<<Jer[0];
-            //tfile_out<<std::setw(20)<<Jer[1];
             tfile_out<<std::endl;
         }
         tfile_out.close();

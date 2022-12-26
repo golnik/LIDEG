@@ -18,9 +18,9 @@ class InputParams:
         config.read(fname)
 
         #read model parameters
-        self.a = float(config['model']['a'])/au2A
-        self.s = float(config['model']['s'])
-        self.Z = float(config['model']['Z'])
+        self.a = float(config['system']['a'])/au2A
+        self.s = float(config['system']['s'])
+        self.Z = float(config['system']['Z'])
 
         #read tgrid
         self.tmin = float(config['propagator']['tmin'])/au2fs

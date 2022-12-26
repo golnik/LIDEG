@@ -195,6 +195,8 @@ public:
             }
         }
 
+        mapping=new Eigen::MatrixXi(Nst,Nst);
+
         //fit the states
         size_t indx=0;
         for(size_t ist=0; ist<Nst; ist++){
@@ -203,19 +205,46 @@ public:
             for(size_t jst=ist+1; jst<Nst; jst++){
                 d_spl_x.push_back(std::make_shared<SPLINTER::BSpline>(SPLINTER::BSpline::Builder(d_data_x[indx]).degree(1).build()));
                 d_spl_y.push_back(std::make_shared<SPLINTER::BSpline>(SPLINTER::BSpline::Builder(d_data_y[indx]).degree(1).build()));
+
+                (*mapping)(ist,jst)=indx;
+
                 indx++;
             }            
         }
+    }
 
-        /*double kx=0.;
-        double ky=0.0;
+    double get_energy(const double& kx, const double& ky, const size_t& ist) const override{
+        return this->spl_evaluate(*e_spl[ist],kx,ky);
+    }
+
+    double get_dipole(const double& kx, const double& ky, const size_t& ist, const size_t& jst, const size_t& dir) const override{
+        size_t Nst=2*_N;
+
+        size_t indx=(*mapping)(ist,jst);
+
+
+        double res=0.;
+        if(ist!=jst){
+            if(dir==0){
+                res=this->spl_evaluate(*d_spl_x[indx],kx,ky);
+            }
+            else if(dir==1){
+                res=this->spl_evaluate(*d_spl_y[indx],kx,ky);
+            }
+        }
+        return res;
+    }
+
+    double get_energy_grad(const double& kx, const double& ky, const size_t& ist, const size_t& dir) const override{
+        double res=0.;
+
+        SPLINTER::DenseVector kxky(2);
         kxky(0)=kx;
         kxky(1)=ky;
-        for(size_t ist=0; ist<Nstates; ist++){
-            //double res=e_spl[ist].eval(kxky);//this->spl_evaluate(e_spl[ist],kx,ky);
-            double res=this->spl_evaluate(*e_spl[ist],kx,ky);
-            std::cout<<ist<<" "<<res<<std::endl;
-        }*/
+
+        auto grad=e_spl[ist]->evalJacobian(kxky);
+
+        return grad(dir);
     }
 
     void propagate(const state_type& rho, state_type& drhodt, const double t,
@@ -233,14 +262,23 @@ public:
         matrix<complex_t> d_x(Nst,Nst);
         matrix<complex_t> d_y(Nst,Nst);
 
+        for(size_t ist=0; ist<Nst; ist++){
+            for(size_t jst=0; jst<Nst; jst++){
+                d_x(ist,jst)=0.;
+                d_y(ist,jst)=0.;
+            }
+        }
+
         size_t indx=0;
         for(size_t ist=0; ist<Nst; ist++){
             for(size_t jst=ist+1; jst<Nst; jst++){
-                d_x(ist,jst)=this->spl_evaluate(*d_spl_x[indx],kx_t,ky_t);
-                d_x(jst,ist)=d_x(ist,jst);
+                //if(ist==0 && jst==Nst-1){
+                    d_x(ist,jst)=this->spl_evaluate(*d_spl_x[indx],kx_t,ky_t);
+                    d_x(jst,ist)=d_x(ist,jst);
 
-                d_y(ist,jst)=this->spl_evaluate(*d_spl_y[indx],kx_t,ky_t);
-                d_y(jst,ist)=d_y(ist,jst);
+                    d_y(ist,jst)=this->spl_evaluate(*d_spl_y[indx],kx_t,ky_t);
+                    d_y(jst,ist)=d_y(ist,jst);
+                //}
 
                 indx++;
             }
@@ -435,6 +473,21 @@ public:
             auto veci=evecs.col(ist);
             auto vecj=evecs.col(jst);
 
+            //double vi=veci(0);
+            if(std::real(veci(0))<0){
+                veci*=-1;
+            }
+
+            if(std::real(vecj(0))<0){
+                vecj*=-1;
+            }            
+
+            //std::cout<<veci(0)<<std::endl;
+
+            //if(vecj[0]<0){
+            //    vecj*=-1;
+            //}
+
             //complex_t dip=I*veci.dot(_S->inverse()*(*_dH0[dir])*vecj)/(ei-ej);
             //complex_t dip=I*veci.dot((*_dH0[dir])*vecj)/(ei-ej);
             //res=std::real(dip);
@@ -446,7 +499,7 @@ public:
             //std::cout<<*_dH0[dir]<<std::endl;
 
             complex_t tmp=I*veci.dot(_S->inverse()*(*_dH0[dir])*vecj);
-            res=-std::abs(tmp)/(ei-ej);
+            res=std::real(tmp)/(ei-ej);
         }
         return res;
     }
@@ -480,4 +533,6 @@ public:
     std::vector<std::shared_ptr<SPLINTER::BSpline>> e_spl;
     std::vector<std::shared_ptr<SPLINTER::BSpline>> d_spl_x;
     std::vector<std::shared_ptr<SPLINTER::BSpline>> d_spl_y;
+
+    Eigen::MatrixXi* mapping;
 };

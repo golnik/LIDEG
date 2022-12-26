@@ -117,6 +117,54 @@ public:
         return autodiff.derivative(1);
     }
 
+    double get_energy(const double& kx, const double& ky, const size_t& ist) const override{
+        double res=0.;
+        if(ist==0){
+            res=ep(kx,ky);
+        }
+        else if(ist==1){
+            res=em(kx,ky);
+        }
+        else{
+            throw std::string("Only two energy levels are available in this model!");
+        }
+        return res;
+    }
+
+    double get_dipole(const double& kx, const double& ky, const size_t& ist, const size_t& jst, const size_t& dir) const override{
+        double res=0.;
+        if(ist!=jst){
+            if(dir==0){
+                res=dx(kx,ky);
+            }
+            else if(dir==1){
+                res=dy(kx,ky);
+            }
+        }
+        return res;
+    }
+
+    double get_energy_grad(const double& kx, const double& ky, const size_t& ist, const size_t& dir) const override{
+        double res=0.;
+        if(dir==0){
+            if(ist==0){
+                res=px_vv(kx,ky);
+            }
+            else if(ist==1){
+                res=px_cc(kx,ky);
+            }
+        }
+        else if(dir==1){
+            if(ist==0){
+                res=py_vv(kx,ky);
+            }
+            else if(ist==1){
+                res=py_cc(kx,ky);
+            }
+        }
+        return res;
+    }
+
     complex_t px_cv(const double& kx, const double& ky) const{
         return I*(em(kx,ky)-ep(kx,ky))*dx(kx,ky);
     }

@@ -81,6 +81,11 @@ add_executable(
     "${CMAKE_CURRENT_SOURCE_DIR}/rspace.cpp"  
 )
 
+add_executable(
+    data_writer.exe
+    "${CMAKE_CURRENT_SOURCE_DIR}/data_writer.cpp"  
+)
+
 #add_executable(
 #    Nlayer.exe
 #    "${CMAKE_CURRENT_SOURCE_DIR}/Nlayer.cpp"  
@@ -100,7 +105,7 @@ target_link_libraries(rspace.exe PRIVATE "stdc++fs")
 
 target_link_libraries(main.exe PUBLIC splinter-3-0)
 target_link_libraries(analysis.exe PUBLIC splinter-3-0)
-#target_link_libraries(Nlayer.exe PUBLIC splinter-3-0)
+target_link_libraries(data_writer.exe PUBLIC splinter-3-0)
 
 find_package(OpenMP)
 if(OpenMP_CXX_FOUND)
