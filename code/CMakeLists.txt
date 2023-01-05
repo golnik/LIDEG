@@ -66,51 +66,19 @@ endif()
 #set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
-add_executable(
-    main.exe
-    "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp"  
-)
-
-add_executable(
-    analysis.exe
-    "${CMAKE_CURRENT_SOURCE_DIR}/analysis.cpp"  
-)
-
-add_executable(
-    rspace.exe
-    "${CMAKE_CURRENT_SOURCE_DIR}/rspace.cpp"  
-)
-
-add_executable(
-    data_writer.exe
-    "${CMAKE_CURRENT_SOURCE_DIR}/data_writer.cpp"  
-)
-
-#add_executable(
-#    Nlayer.exe
-#    "${CMAKE_CURRENT_SOURCE_DIR}/Nlayer.cpp"  
-#)
-
-#add_executable(
-#    debug.exe
-#    "${CMAKE_CURRENT_SOURCE_DIR}/utils/gauss_legendre.c"    
-#    "${CMAKE_CURRENT_SOURCE_DIR}/debug.cpp"
-#)
-
-target_link_libraries(main.exe PRIVATE "stdc++fs")
-target_link_libraries(analysis.exe PRIVATE "stdc++fs")
-target_link_libraries(rspace.exe PRIVATE "stdc++fs")
-#target_link_libraries(Nlayer.exe PRIVATE "stdc++fs")
-#target_link_libraries(debug.exe PRIVATE "stdc++fs")
-
-target_link_libraries(main.exe PUBLIC splinter-3-0)
-target_link_libraries(analysis.exe PUBLIC splinter-3-0)
-target_link_libraries(data_writer.exe PUBLIC splinter-3-0)
-
 find_package(OpenMP)
-if(OpenMP_CXX_FOUND)
-    target_link_libraries(main.exe PUBLIC OpenMP::OpenMP_CXX)
-    target_link_libraries(analysis.exe PUBLIC OpenMP::OpenMP_CXX)
-    target_link_libraries(rspace.exe PUBLIC OpenMP::OpenMP_CXX)
-    target_link_libraries(data_writer.exe PUBLIC OpenMP::OpenMP_CXX)
-endif()
+
+set(PROGS "main;analysis;rspace;data_writer;oshape")
+
+foreach(PROG ${PROGS})
+    set(BIN ${PROG}.exe)
+
+    add_executable(${BIN} "${CMAKE_CURRENT_SOURCE_DIR}/${PROG}.cpp")
+
+    target_link_libraries(${BIN} PRIVATE "stdc++fs")
+    target_link_libraries(${BIN} PUBLIC splinter-3-0)
+
+    if(OpenMP_CXX_FOUND)
+        target_link_libraries(${BIN} PUBLIC OpenMP::OpenMP_CXX)
+    endif()
+ENDFOREACH()
