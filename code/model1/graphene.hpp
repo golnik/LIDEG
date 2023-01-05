@@ -201,54 +201,6 @@ public:
         std::cout<<"s: "<<_s<<std::endl;
     }
 
-    void write_energies_to_file(const std::string& fname, Grid2D* kxygrid) const{
-        std::ofstream out(fname);
-
-        size_t Nkx=kxygrid->size1();
-        size_t Nky=kxygrid->size2();
-
-        out<<std::scientific;
-        out<<std::setprecision(8);
-        for(size_t ikx=0; ikx<Nkx; ikx++){
-            for(size_t iky=0; iky<Nky; iky++){
-                double kx=(*kxygrid)(ikx,iky)[0];
-                double ky=(*kxygrid)(ikx,iky)[1];
-
-                out<<std::setw(20)<<kx<<std::setw(20)<<ky;
-                out<<std::setw(20)<<ep(kx,ky);
-                out<<std::setw(20)<<em(kx,ky);
-                out<<std::endl;
-            }
-        }
-
-        out.close();
-        return;
-    }
-
-    void write_dipoles_to_file(const std::string& fname, Grid2D* kxygrid) const{
-        std::ofstream out(fname);
-
-        size_t Nkx=kxygrid->size1();
-        size_t Nky=kxygrid->size2();
-
-        out<<std::scientific;
-        out<<std::setprecision(8);
-        for(size_t ikx=0; ikx<Nkx; ikx++){
-            for(size_t iky=0; iky<Nky; iky++){
-                double kx=(*kxygrid)(ikx,iky)[0];
-                double ky=(*kxygrid)(ikx,iky)[1];
-
-                out<<std::setw(20)<<kx<<std::setw(20)<<ky;
-                out<<std::setw(20)<<std::abs(dx(kx,ky));
-                out<<std::setw(20)<<std::abs(dy(kx,ky));
-                out<<std::endl;
-            }
-        }
-
-        out.close();
-        return;
-    }    
-
     void propagate(const state_type& rho, state_type& drhodt, const double t,
                     const double& kx_t, const double& ky_t) const override{
         double emn[2]={ep(kx_t,ky_t),em(kx_t,ky_t)};
