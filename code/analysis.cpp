@@ -84,9 +84,9 @@ int main(int argc, char** argv){
             gm=new GrapheneModel(params.a,params.e2p,params.gamma,params.s,params.Td,Efield_x,Efield_y);
         }
         else if(params.model==models::nlayer){            
-            double eps[]={params.e2p,params.e2p};
-            double g[]={params.gamma,0.39/au2eV};
-            double s[]={params.s,0.0};
+            std::vector<double> eps={params.e2p,params.e2p};
+            std::vector<double> g={params.gamma,0.39/au2eV};
+            std::vector<double> s={params.s,0.0};
 
             gm=new NGraphene(tb,params.nlayers,
                         kxygrid,
@@ -226,7 +226,7 @@ int main(int argc, char** argv){
 
                         double res=0.;
                         for(size_t ist=0; ist<Nstates; ist++){
-                            //res+=gm->get_energy_grad(kxt,kyt,ist,dir)*dens_data[ist](ikx,iky);
+                            res+=gm->get_energy_grad(kxt,kyt,ist,dir)*dens_data[ist](ikx,iky);
                         }
 
                         return res;

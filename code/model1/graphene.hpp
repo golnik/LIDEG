@@ -165,6 +165,27 @@ public:
         return res;
     }
 
+    vector_t get_state(const double& kx, const double& ky, const size_t& ist) const override{
+        vector_t res(2);
+        for(size_t ist=0; ist<this->nstates(); ist++){
+            res(ist)=0.;
+        }
+        if(ist==0){
+            res(0)=1.;
+            res(1)=exp(-I*this->phi(kx,ky));
+            res*=1./(sqrt(2.*(1.+this->_s*abs(this->f(kx,ky)))));
+        }
+        else if(ist==1){
+            res(0)=1.;
+            res(1)=-exp(-I*this->phi(kx,ky));
+            res*=1./(sqrt(2.*(1.-this->_s*abs(this->f(kx,ky)))));
+        }
+        else{
+            throw std::string("Only two energy levels are available in this model!");
+        }
+        return res;
+    }
+
     complex_t px_cv(const double& kx, const double& ky) const{
         return I*(em(kx,ky)-ep(kx,ky))*dx(kx,ky);
     }

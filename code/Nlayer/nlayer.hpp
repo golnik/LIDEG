@@ -114,12 +114,12 @@ public Graphene{
 public:
     NGraphene(HexagonalTBModel* tbm, const size_t& N,
               Grid2D* kxygrid,
-              double* eps,
-              double* g,
-              double* s,
+              const std::vector<double>& eps,
+              const std::vector<double>& g,
+              const std::vector<double>& s,
               ExternalField* Ex, ExternalField* Ey):
     _tbm{tbm},_N(N),
-    _eps{eps},_g{g},_s{s},
+    _eps(eps),_g(g),_s(s),
     _Ex{Ex},_Ey{Ey}{
         size_t Nst=2*N;
 
@@ -163,7 +163,7 @@ public:
 
                 this->solve(kx,ky);
                 auto evals=_solver->eigenvalues();
-                auto evecs=_solver->eigenvalues();
+                //auto evecs=_solver->eigenvalues();
 
                 kxky(0)=kx;
                 kxky(1)=ky;
@@ -236,7 +236,7 @@ public:
     }
 
     double get_energy_grad(const double& kx, const double& ky, const size_t& ist, const size_t& dir) const override{
-        double res=0.;
+        /*double res=0.;
 
         SPLINTER::DenseVector kxky(2);
         kxky(0)=kx;
@@ -244,7 +244,32 @@ public:
 
         auto grad=e_spl[ist]->evalJacobian(kxky);
 
-        return grad(dir);
+        return grad(dir);*/
+
+        this->solve(kx,ky);
+
+        auto evals=_solver->eigenvalues();
+        auto evecs=_solver->eigenvectors();
+
+        auto veci=evecs.col(ist);
+
+        complex_t res=veci.dot(_S->inverse()*(*_dH0[dir])*veci);
+
+        return std::real(res);
+    }
+
+    vector_t get_state(const double& kx, const double& ky, const size_t& ist) const override{
+        vector_t res(this->nstates());
+
+        this->solve(kx,ky);
+        auto evecs=_solver->eigenvectors();
+        auto veci=evecs.col(ist);
+
+        for(size_t j=0; j<this->nstates(); j++){
+            res(j)=veci(j);
+        }
+
+        return res;
     }
 
     void propagate(const state_type& rho, state_type& drhodt, const double t,
@@ -516,9 +541,9 @@ public:
     HexagonalTBModel* _tbm;
     size_t _N;
 
-    double* _eps;
-    double* _g;
-    double* _s;
+    std::vector<double> _eps;
+    std::vector<double> _g;
+    std::vector<double> _s;
 
     matrix_t* _H0;
     matrix_t* _S;

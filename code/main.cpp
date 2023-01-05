@@ -12,7 +12,7 @@
 #include "external_field.hpp"
 #include "graphenemodel.hpp"
 #include "model1/graphene.hpp"
-#include "model1/WFs.hpp"
+//#include "model1/WFs.hpp"
 #include "model2/graphene2.hpp"
 #include "Nlayer/nlayer.hpp"
 
@@ -115,9 +115,9 @@ int main(int argc, char** argv){
             gm=new GrapheneModel(params.a,params.e2p,params.gamma,params.s,params.Td,Efield_x,Efield_y);
         }
         else if(params.model==models::nlayer){            
-            double eps[]={params.e2p,params.e2p};
-            double g[]={params.gamma,0.39/au2eV};
-            double s[]={params.s,0.0};
+            std::vector<double> eps={params.e2p,params.e2p};
+            std::vector<double> g={params.gamma,0.39/au2eV};
+            std::vector<double> s={params.s,0.0};
 
             gm=new NGraphene(tb,params.nlayers,
                         kxygrid,
