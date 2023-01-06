@@ -8,9 +8,15 @@
 #include "external_field.hpp"
 #include "graphenemodel.hpp"
 #include "model1/graphene.hpp"
-#include "model1/WFs.hpp"
+//#include "model1/WFs.hpp"
 #include "model2/graphene2.hpp"
 #include "Nlayer/nlayer.hpp"
+
+#include "WFs.hpp"
+
+#include <boost/numeric/ublas/matrix.hpp>
+using namespace boost::numeric::ublas;
+typedef vector<complex_t> vector_t;
 
 int main(int argc, char** argv){
     try{
@@ -20,6 +26,10 @@ int main(int argc, char** argv){
         Parser parser(params);
 
         parser.analyze(fname);
+
+        //create output directory if does not exist
+        fs::path outpath(params.outdir);
+        fs::create_directory(outpath);
 
         ExternalField* E0=nullptr;
 
@@ -55,15 +65,17 @@ int main(int argc, char** argv){
             kxygrid=new UCellGrid2D(Ox,Oy,b1x,b1y,params.Nkx,b2x,b2y,params.Nky);
         }
 
+        Integrator2D* integrator=new Integrator2D(kxygrid);
+
         //create graphene model
         Graphene* gm;
         if(params.model==models::hommelhoff){
             gm=new GrapheneModel(params.a,params.e2p,params.gamma,params.s,params.Td,E0,E0);
         }
         else if(params.model==models::nlayer){            
-            double eps[]={params.e2p,params.e2p};
-            double g[]={params.gamma,0.39/au2eV};
-            double s[]={params.s,0.0};
+            std::vector<double> eps={params.e2p,params.e2p};
+            std::vector<double> g={params.gamma,0.39/au2eV};
+            std::vector<double> s={params.s,0.0};
 
             gm=new NGraphene(tb,params.nlayers,
                         kxygrid,
@@ -72,14 +84,24 @@ int main(int argc, char** argv){
         }
 
         //create rgrid
-        double Ox=-(1./sqrt(3.))*params.a;
-        double Oy=0.;
-        double a1x=params.a/2.*sqrt(3.);
-        double a1y=params.a/2.;
-        double a2x=a1x;
-        double a2y=-a1y;
+        Grid2D* xygrid;
+        if(params.rgrid_type==rgrid_types::rectan){
+            Grid1D* xgrid=new RegularGrid1D(params.xmin,params.xmax,params.Nx);
+            Grid1D* ygrid=new RegularGrid1D(params.ymin,params.ymax,params.Ny);
 
-        Grid2D* xygrid=new UCellGrid2D(Ox,Oy,a1x,a1y,params.Nx,a2x,a2y,params.Ny);
+            xygrid=new RegularGrid2D(xgrid,ygrid);
+        }
+        else if(params.rgrid_type==rgrid_types::ucell){
+            double Ox=-(1./sqrt(3.))*params.a;
+            double Oy=0.;
+            double a1x=params.a/2.*sqrt(3.);
+            double a1y=params.a/2.;
+            double a2x=a1x;
+            double a2y=-a1y;
+
+            xygrid=new UCellGrid2D(Ox,Oy,a1x,a1y,params.Nx,a2x,a2y,params.Ny);
+        }
+
         Grid1D* zgrid=new RegularGrid1D(params.zmin,params.zmax,params.Nz);
 
         size_t Nst=gm->nstates();
@@ -108,8 +130,16 @@ int main(int argc, char** argv){
 
         for(size_t ix=0; ix<params.Nx; ix++){
             for(size_t iy=0; iy<params.Ny; iy++){
-                rgrid_out<<std::setw(20)<<(*xygrid)(ix,iy)[0];
-                rgrid_out<<std::setw(20)<<(*xygrid)(ix,iy)[1]<<std::endl;
+                for(size_t iz=0; iz<params.Nz; iz++){
+                    double x=(*xygrid)(ix,iy)[0];
+                    double y=(*xygrid)(ix,iy)[1];
+                    double z=(*zgrid)[iz];
+
+                    rgrid_out<<std::setw(20)<<x;
+                    rgrid_out<<std::setw(20)<<y;
+                    rgrid_out<<std::setw(20)<<z;
+                    rgrid_out<<std::endl;
+                }
             }
         }
         rgrid_out.close();
@@ -159,6 +189,11 @@ int main(int argc, char** argv){
                 }
                 
                 for(size_t ist=0; ist<Nst; ist++){
+                    kout<<std::setw(20)<<gm->get_energy_grad(kx,ky,ist,0);
+                    kout<<std::setw(20)<<gm->get_energy_grad(kx,ky,ist,1);
+                }
+
+                for(size_t ist=0; ist<Nst; ist++){
                     for(size_t jst=ist+1; jst<Nst; jst++){
                         double dip_x=gm->get_dipole(kx,ky,ist,jst,0);
                         double dip_y=gm->get_dipole(kx,ky,ist,jst,1);
@@ -174,29 +209,111 @@ int main(int argc, char** argv){
 
         kout.close();
 
+        MultiIndex indx_kxkyst({params.Nkx,params.Nky,Nst});
+        size_t N_kxkyst=indx_kxkyst.size();
+
+        std::vector<vector_t> vecs(N_kxkyst);
+
+        for(size_t ist=0; ist<Nst; ist++){
+            for(size_t ikx=0; ikx<Nkx; ikx++){
+                for(size_t iky=0; iky<Nky; iky++){
+                    double kx=(*kxygrid)(ikx,iky)[0];
+                    double ky=(*kxygrid)(ikx,iky)[1];
+
+                    size_t indx_ikxikyist=indx_kxkyst({ikx,iky,ist});
+                    vecs[indx_ikxikyist]=gm->get_state(kx,ky,ist);
+                }
+            }
+        }
+
+        Orbital* pz=new Pzorb_normal(params.Z);
+
+        //double l=3.46/au2A;
+
+        AtomsSet setA=GenerateGraphenePattern(pz,params.a,params.Nclx,params.Ncly,0.,0.,0.);
+        AtomsSet setB=GenerateGraphenePattern(pz,params.a,params.Nclx,params.Ncly,params.a/sqrt(3.),0.,0.);
+
+        setA.compute_on_grid(kxygrid);
+        setB.compute_on_grid(kxygrid);
+
+        //AtomsSet setAA=GenerateGraphenePattern(pz,params.a,params.Nclx,params.Ncly,params.a/sqrt(3.),0.,l);
+        //AtomsSet setBB=GenerateGraphenePattern(pz,params.a,params.Nclx,params.Ncly,0.,0.,l);
+
+
+        Material graphene;
+        graphene.add_atomsset(setA);
+        graphene.add_atomsset(setB);
+
+        //graphene.add_atomsset(setAA);
+        //graphene.add_atomsset(setBB);
+
+        //print atom positions to file
+        std::ofstream atoms_out;
+        atoms_out.open(params.afile_fname);
+        graphene.print_atoms(atoms_out);
+        atoms_out.close();
+
         //write rdata to file
         std::ofstream rout(params.prfile_fname);
 
         rout<<std::scientific;
         rout<<std::setprecision(8);
 
+        MultiIndex indx_xyzst({params.Nx,params.Ny,params.Nz,Nst});
+        
+        size_t N_xyzst=indx_xyzst.size();
+
+        std::vector<complex_t> BlochPhi(N_xyzst);
+        std::vector<complex_t> Psi(N_xyzst);
+
         for(size_t ix=0; ix<params.Nx; ix++){
+            std::cout<<"ix: "<<ix<<std::endl;
             for(size_t iy=0; iy<params.Ny; iy++){
                 for(size_t iz=0; iz<params.Nz; iz++){
                     double x=(*xygrid)(ix,iy)[0];
                     double y=(*xygrid)(ix,iy)[1];
                     double z=(*zgrid)[iz];
 
-                    rout<<std::setw(20)<<x;
-                    rout<<std::setw(20)<<y;
-                    rout<<std::setw(20)<<z;
+                    //integrate in reciprocal space                        
+                    auto func=[x,y,z,
+                        kxygrid,
+                        Nst,
+                        &indx_kxkyst,
+                        &vecs,&graphene](const size_t& ikx, const size_t& iky){
+
+                        vector<double> res(Nst);
+
+                        std::vector<complex_t> Phis(Nst);
+                        for(size_t ist=0; ist<Nst; ist++){
+                            Phis[ist]=graphene.PhiI(ist,x,y,z,ikx,iky);
+                        }
+
+                        for(size_t ist=0; ist<Nst; ist++){
+                            complex_t res_ist=0.;
+                            for(size_t jst=0; jst<Nst; jst++){
+                                size_t indx_ikxikyist=indx_kxkyst({ikx,iky,ist});
+                                size_t indx_ikxikyjst=indx_kxkyst({ikx,iky,jst});
+                                res_ist+=vecs[indx_ikxikyist][jst]*Phis[jst];
+                            }
+                            res(ist)=std::norm(res_ist);
+                        }
+                        
+                        return res;
+                    };
+
+                    vector<double> res=zero_vector<double>(Nst);
+                    integrator->trapz(func,res);
+                    
+                    for(size_t ist=0; ist<Nst; ist++){
+                        rout<<std::setw(20)<<res(ist);
+                    }
 
                     rout<<std::endl;
                 }
             }
         }
-
         rout.close();
+
     }catch(std::string er){
         std::cout<<' '<<er<<std::endl;
         std::cout<<" Task not accomplished.\n";

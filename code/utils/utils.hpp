@@ -6,6 +6,7 @@
 #include <fstream>
 #include <iostream>
 #include <complex>
+#include <cassert>
 
 #include "integrator.hpp"
 
@@ -120,5 +121,41 @@ void printProgress(double percentage) {
     printf("\r%3d%% [%.*s%*s]\n", val, lpad, PBSTR, rpad, "");
     fflush(stdout);
 }
+
+class MultiIndex{
+public:
+    explicit MultiIndex(const std::vector<size_t>& dims):
+    _dims(dims){
+        assert(!dims.empty());
+    }
+
+    size_t operator()(const std::vector<size_t>& indexes) const{
+        return this->indx(indexes);
+    }
+
+    size_t indx(const std::vector<size_t>& indexes) const{
+        assert(indexes.size()==_dims.size());
+
+        size_t index=0;
+        size_t mul=1;
+
+        for(size_t i=0; i!=_dims.size(); ++i){
+            assert(indexes[i]<_dims[i]);
+            index+=indexes[i]*mul;
+            mul*=_dims[i];
+        }
+        return index;
+    }
+
+    size_t size() const{
+        size_t totalSize=1;
+        for(auto i: _dims){
+            totalSize*=i;
+        }
+        return totalSize;
+    }
+private:
+    std::vector<size_t> _dims;
+};
 
 #endif
