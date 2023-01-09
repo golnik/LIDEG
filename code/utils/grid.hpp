@@ -12,6 +12,7 @@ class Grid1D{
 public:
     virtual size_t size() const=0;
     virtual double operator[](const size_t& i) const=0;
+    virtual double get_dx() const=0;
 private:
 };
 
@@ -45,6 +46,10 @@ public:
 
     double operator[](const size_t& i) const override{
         return _grid[i];
+    }
+
+    double get_dx() const override{
+        return _grid[1]-_grid[0];
     }
 private:
     double* _grid;
@@ -249,6 +254,27 @@ private:
     vector_t* _a;
     vector_t* _b;
     vector_t* _O;    
+};
+
+class Integrator1D{
+public:
+    Integrator1D(Grid1D* grid):
+    _grid(grid){}
+
+    template<typename value_t, typename func_t>
+    void trapz(const func_t& f, value_t& res) const{
+        size_t N=_grid->size();
+        double dx=_grid->get_dx();
+
+        res=0.5*(f(0)+f(N-1));
+        for(size_t i=1; i<N-1; i++){
+            res+=f(i);
+        }
+        res*=dx;
+        return;
+    }
+private:
+    Grid1D* _grid;
 };
 
 class Integrator2D{

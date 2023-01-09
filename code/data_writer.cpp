@@ -65,7 +65,8 @@ int main(int argc, char** argv){
             kxygrid=new UCellGrid2D(Ox,Oy,b1x,b1y,params.Nkx,b2x,b2y,params.Nky);
         }
 
-        Integrator2D* integrator=new Integrator2D(kxygrid);
+        Integrator2D* integrator_kxky=new Integrator2D(kxygrid);
+        double SBZ=pow(2.*M_PI,2.)/(0.5*sqrt(3.)*params.a*params.a);
 
         //create graphene model
         Graphene* gm;
@@ -103,6 +104,9 @@ int main(int argc, char** argv){
         }
 
         Grid1D* zgrid=new RegularGrid1D(params.zmin,params.zmax,params.Nz);
+
+        Integrator2D* integrator_xy=new Integrator2D(xygrid);
+        Integrator1D* integrator_z=new Integrator1D(zgrid);
 
         size_t Nst=gm->nstates();
 
@@ -212,6 +216,10 @@ int main(int argc, char** argv){
         MultiIndex indx_kxkyst({params.Nkx,params.Nky,Nst});
         size_t N_kxkyst=indx_kxkyst.size();
 
+        MultiIndex indx_xyzst({params.Nx,params.Ny,params.Nz,Nst});
+        size_t N_xyzst=indx_xyzst.size();
+
+        //compute eigenstates in reciprocal space
         std::vector<vector_t> vecs(N_kxkyst);
 
         for(size_t ist=0; ist<Nst; ist++){
@@ -226,6 +234,7 @@ int main(int argc, char** argv){
             }
         }
 
+        //create graphene material
         Orbital* pz=new Pzorb_normal(params.Z);
 
         //double l=3.46/au2A;
@@ -253,18 +262,12 @@ int main(int argc, char** argv){
         graphene.print_atoms(atoms_out);
         atoms_out.close();
 
+        std::vector<double> Psi(N_xyzst);//eigenstates data in real space
+
         //write rdata to file
         std::ofstream rout(params.prfile_fname);
-
         rout<<std::scientific;
         rout<<std::setprecision(8);
-
-        MultiIndex indx_xyzst({params.Nx,params.Ny,params.Nz,Nst});
-        
-        size_t N_xyzst=indx_xyzst.size();
-
-        std::vector<complex_t> BlochPhi(N_xyzst);
-        std::vector<complex_t> Psi(N_xyzst);
 
         for(size_t ix=0; ix<params.Nx; ix++){
             std::cout<<"ix: "<<ix<<std::endl;
@@ -276,35 +279,44 @@ int main(int argc, char** argv){
 
                     //integrate in reciprocal space                        
                     auto func=[x,y,z,
-                        kxygrid,
                         Nst,
                         &indx_kxkyst,
                         &vecs,&graphene](const size_t& ikx, const size_t& iky){
 
+                        //we will return eigenstates
                         vector<double> res(Nst);
 
-                        std::vector<complex_t> Phis(Nst);
+                        //compute Bloch functions
+                        std::vector<complex_t> BPhis(Nst);
                         for(size_t ist=0; ist<Nst; ist++){
-                            Phis[ist]=graphene.PhiI(ist,x,y,z,ikx,iky);
+                            BPhis[ist]=graphene.PhiI(ist,x,y,z,ikx,iky);
                         }
 
+                        //compute eigenstates
                         for(size_t ist=0; ist<Nst; ist++){
-                            complex_t res_ist=0.;
+                            complex_t Psi=0.;
                             for(size_t jst=0; jst<Nst; jst++){
                                 size_t indx_ikxikyist=indx_kxkyst({ikx,iky,ist});
                                 size_t indx_ikxikyjst=indx_kxkyst({ikx,iky,jst});
-                                res_ist+=vecs[indx_ikxikyist][jst]*Phis[jst];
+                                Psi+=vecs[indx_ikxikyist][jst]*BPhis[jst];
                             }
-                            res(ist)=std::norm(res_ist);
+                            res(ist)=std::norm(Psi);
                         }
                         
                         return res;
                     };
 
                     vector<double> res=zero_vector<double>(Nst);
-                    integrator->trapz(func,res);
+                    integrator_kxky->trapz(func,res);
                     
                     for(size_t ist=0; ist<Nst; ist++){
+                        res(ist)*=2./SBZ;//normalize for area of the BZ
+                        size_t indx_ixiyizist=indx_xyzst({ix,iy,iz,ist});
+                        Psi[indx_ixiyizist]=res(ist);
+                    }
+
+                    //write eigenstates to files
+                    for(size_t ist=0; ist<res.size(); ist++){
                         rout<<std::setw(20)<<res(ist);
                     }
 
@@ -313,6 +325,30 @@ int main(int argc, char** argv){
             }
         }
         rout.close();
+
+        //integrate in real space
+        for(size_t ist=0; ist<Nst; ist++){
+            //integrate in xy coordinates
+            std::vector<double> res_xy(params.Nz);
+            for(size_t iz=0; iz<zgrid->size(); iz++){
+                auto int_xy=[iz,ist,&Psi,&indx_xyzst](const size_t& ix, const size_t& iy){
+                    size_t indx_ixiyizist=indx_xyzst({ix,iy,iz,ist});
+                    return Psi[indx_ixiyizist];
+                };
+                double res=0.;
+                integrator_xy->trapz(int_xy,res);
+                res_xy[iz]=res;
+            }
+
+            //integrate in z coordinate
+            double sum=0;
+            integrator_z->trapz(
+                [&res_xy](const size_t& iz){
+                    return res_xy[iz];
+                },sum);
+
+            std::cout<<"XYZkxky integral of eigenstate "<<ist+1<<": "<<sum<<std::endl;
+        }
 
     }catch(std::string er){
         std::cout<<' '<<er<<std::endl;

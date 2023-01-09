@@ -6,6 +6,9 @@
 
 #include "utils/utils.hpp"
 
+#include <boost/math/differentiation/autodiff.hpp>
+using namespace boost::math::differentiation;
+
 #define THRS 1.e-9
 
 class Orbital{
@@ -13,33 +16,66 @@ public:
     Orbital(){}
     ~Orbital(){}
 
-    virtual double operator()(const double& rx, const double& ry, const double& rz) const=0;
+    virtual double p(const double& rx, const double& ry, const double& rz) const=0;
+
+    virtual double dp(const double& rx, const double& ry, const double& rz, const size_t& dir) const{
+        return 0;
+    }
 };
 
 class Pzorb_normal:
 public Orbital{
 public:
     Pzorb_normal(const double& Z):
-    _Z(Z){}
+    _Z(Z){
+        double a=1./_Z;
+        _norm=sqrt(1./pow(a,3.))/(4.*a*sqrt(2.*M_PI));
+    }
 
-    double operator()(const double& rx, const double& ry, const double& rz) const override{
-        double r=sqrt(rx*rx+ry*ry+rz*rz);
-        double cos_theta=0.;
-        
-        if(r>=THRS){
+    double p(const double& rx, const double& ry, const double& rz) const override{
+        return psi(rx,ry,rz);
+    }
+
+    double dp(const double& rx, const double& ry, const double& rz, const size_t& dir) const override{
+        double res=0.;
+        if(dir==0){
+            auto const rx_ad=make_fvar<double,1>(rx);
+            auto const autodiff=psi(rx_ad,ry,rz);
+            res=autodiff.derivative(1);
+        }
+        else if(dir==1){
+            auto const ry_ad=make_fvar<double,1>(ry);
+            auto const autodiff=psi(rx,ry_ad,rz);
+            res=autodiff.derivative(1);
+        }
+        else if(dir==2){
+            auto const rz_ad=make_fvar<double,1>(rz);
+            auto const autodiff=psi(rx,ry,rz_ad);
+            res=autodiff.derivative(1);
+        }
+        return res;
+    }
+private:
+    template<typename Tx, typename Ty, typename Tz>
+    promote<Tx,Ty,Tz> psi(const Tx& rx, const Ty& ry, const Tz& rz) const{
+        auto r=sqrt(rx*rx+ry*ry+rz*rz);
+        auto cosT=rz/(r+1e-10);
+
+        /*if(r>=THRS){
             cos_theta=rz/r;
         }
         else{
             cos_theta=1.;
-        }
+        }*/
 
-        return _Z*r*cos_theta*exp(-0.5*_Z*r);
+        return _norm*r*cosT*exp(-0.5*_Z*r);
     }
-private:
+
     double _Z;
+    double _norm;
 };
 
-class Pzorb_integr:
+/*class Pzorb_integr:
 public Orbital{
 public:
     Pzorb_integr(const double& Z):
@@ -51,7 +87,7 @@ public:
     }
 private:
     double _Z;
-};
+};*/
 
 class Atom{
     friend class AtomsSet;
@@ -114,7 +150,7 @@ public:
             double Rz=atom._z;
 
             double k_R=kx*Rx+ky*Ry;
-            res+=exp(I*k_R)*(*atom._orb)(rx-Rx,ry-Ry,rz-Rz);
+            res+=exp(I*k_R)*atom._orb->p(rx-Rx,ry-Ry,rz-Rz);
         }
         return res;
     }
@@ -128,7 +164,22 @@ public:
             double Rz=_atoms[ia]._z;
 
             size_t indx=(*_indx)({ikx,iky,ia});
-            res+=_exps[indx]*(*_atoms[ia]._orb)(rx-Rx,ry-Ry,rz-Rz);
+            res+=_exps[indx]*_atoms[ia]._orb->p(rx-Rx,ry-Ry,rz-Rz);
+        }
+        return res;
+    }
+
+    complex_t dPhi(const double& rx, const double& ry, const double& rz,
+                   const size_t& ikx, const size_t& iky,
+                   const size_t& dir) const{
+        complex_t res=0.;
+        for(size_t ia=0; ia<this->natoms(); ia++){
+            double Rx=_atoms[ia]._x;
+            double Ry=_atoms[ia]._y;
+            double Rz=_atoms[ia]._z;
+
+            size_t indx=(*_indx)({ikx,iky,ia});
+            res+=_exps[indx]*_atoms[ia]._orb->dp(rx-Rx,ry-Ry,rz-Rz,dir);
         }
         return res;
     }
@@ -152,16 +203,19 @@ public:
         _sets.push_back(set);
     }
 
+    template<typename T>
     complex_t PhiI(const size_t& i,
                    const double& rx, const double& ry, const double& rz,
-                   const double& kx, const double& ky) const{
+                   const T& kx, const T& ky) const{
         return _sets[i].Phi(rx,ry,rz,kx,ky);
     }
 
-    complex_t PhiI(const size_t& i,
-                   const double& rx, const double& ry, const double& rz,
-                   const size_t& ikx, const size_t& iky) const{
-        return _sets[i].Phi(rx,ry,rz,ikx,iky);
+    template<typename T>
+    complex_t dPhiI(const size_t& i,
+                    const double& rx, const double& ry, const double& rz,
+                    const T& kx, const T& ky,
+                    const size_t& dir) const{
+        return _sets[i].dPhi(rx,ry,rz,kx,ky,dir);
     }
 
     void print_atoms(std::ofstream& out) const{

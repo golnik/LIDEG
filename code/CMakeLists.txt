@@ -68,7 +68,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
 find_package(OpenMP)
 
-set(PROGS "main;analysis;rspace;data_writer;oshape")
+set(PROGS "main;analysis;rspace;data_writer")
 
 foreach(PROG ${PROGS})
     set(BIN ${PROG}.exe)
