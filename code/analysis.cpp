@@ -202,7 +202,7 @@ int main(int argc, char** argv){
                         coh_im
                     );
 
-                    cohs[ist]=coh_re+I*coh_im;
+                    cohs[indx]=coh_re+I*coh_im;
 
                     indx++;
                 }

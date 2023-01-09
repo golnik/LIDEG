@@ -41,6 +41,8 @@ typedef runge_kutta_dopri5<state_type> rkd5;
 
 typedef controlled_runge_kutta<rkck54> ctrl_rkck54;
 
+typedef adams_bashforth_moulton<7,state_type> abm;
+
 int main(int argc, char** argv){
     try{
         std::string fname=argv[1];
@@ -199,7 +201,8 @@ int main(int argc, char** argv){
                         //ctrl_rkck54(),
                         //rkf78(),
                         //rkd5(),
-                        make_controlled(params.err_abs,params.err_rel,rkd5()), 
+                        //abm(),
+                        make_controlled(params.err_abs,params.err_rel,rkf78()),
                         system,rho_t_kxky(ikx,iky),time,time+dt,params.ddt);
                 }
             }
@@ -207,7 +210,7 @@ int main(int argc, char** argv){
             //write kgrid files
             dens_t_out<<std::scientific;
             //rho_t_out<<std::fixed;
-            dens_t_out<<std::setprecision(8);
+            dens_t_out<<std::setprecision(12);
 
             //write file header
             dens_t_out<<"#";
