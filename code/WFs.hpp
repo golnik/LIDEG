@@ -59,16 +59,7 @@ private:
     template<typename Tx, typename Ty, typename Tz>
     promote<Tx,Ty,Tz> psi(const Tx& rx, const Ty& ry, const Tz& rz) const{
         auto r=sqrt(rx*rx+ry*ry+rz*rz);
-        auto cosT=rz/(r+1e-10);
-
-        /*if(r>=THRS){
-            cos_theta=rz/r;
-        }
-        else{
-            cos_theta=1.;
-        }*/
-
-        return _norm*r*cosT*exp(-0.5*_Z*r);
+        return _norm*rz*exp(-0.5*_Z*r);//because cosT*r=rz
     }
 
     double _Z;

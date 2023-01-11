@@ -267,7 +267,7 @@ int main(int argc, char** argv){
         //write rdata to file
         std::ofstream rout(params.prfile_fname);
         rout<<std::scientific;
-        rout<<std::setprecision(8);
+        rout<<std::setprecision(15);
 
         for(size_t ix=0; ix<params.Nx; ix++){
             std::cout<<"ix: "<<ix<<std::endl;
@@ -308,16 +308,16 @@ int main(int argc, char** argv){
 
                     vector<double> res=zero_vector<double>(Nst);
                     integrator_kxky->trapz(func,res);
-                    
+                    res*=2./SBZ;//normalize for area of the BZ
+
                     for(size_t ist=0; ist<Nst; ist++){
-                        res(ist)*=2./SBZ;//normalize for area of the BZ
                         size_t indx_ixiyizist=indx_xyzst({ix,iy,iz,ist});
                         Psi[indx_ixiyizist]=res(ist);
                     }
 
                     //write eigenstates to files
                     for(size_t ist=0; ist<res.size(); ist++){
-                        rout<<std::setw(20)<<res(ist);
+                        rout<<std::setw(25)<<res(ist);
                     }
 
                     rout<<std::endl;

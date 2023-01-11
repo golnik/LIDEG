@@ -25,13 +25,14 @@ public:
 
         if(N==1){
             _grid[0]=min;
+            _dx=1.0;
         }
         else if(N>1){
-            double d=(max-min)/(N-1);
+            _dx=(max-min)/(N-1);
             double var=min;
             for(size_t i=0; i<N; i++){
                 _grid[i]=var;
-                var+=d;
+                var+=_dx;
             }
         }
     }
@@ -49,10 +50,11 @@ public:
     }
 
     double get_dx() const override{
-        return _grid[1]-_grid[0];
+        return _dx;
     }
 private:
     double* _grid;
+    double _dx;
     size_t _N;
 };
 

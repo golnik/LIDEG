@@ -66,6 +66,8 @@ endif()
 #set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
+#set(CMAKE_EXE_LINKER_FLAGS "-static")
+
 find_package(OpenMP)
 
 set(PROGS "main;analysis;rspace;data_writer")
@@ -75,8 +77,8 @@ foreach(PROG ${PROGS})
 
     add_executable(${BIN} "${CMAKE_CURRENT_SOURCE_DIR}/${PROG}.cpp")
 
-    target_link_libraries(${BIN} PRIVATE "stdc++fs")
-    target_link_libraries(${BIN} PUBLIC splinter-3-0)
+    target_link_libraries(${BIN} PUBLIC "stdc++fs")
+    target_link_libraries(${BIN} PUBLIC splinter-static-3-0)
 
     if(OpenMP_CXX_FOUND)
         target_link_libraries(${BIN} PUBLIC OpenMP::OpenMP_CXX)
