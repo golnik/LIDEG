@@ -81,16 +81,15 @@ int main(int argc, char** argv){
         double SBZ=pow(2.*M_PI,2.)/(0.5*sqrt(3.)*params.a*params.a);
 
         if(params.model==models::hommelhoff){
-            gm=new GrapheneModel(params.a,params.e2p,params.gamma,params.s,params.Td,Efield_x,Efield_y);
+            double e2p=params.e2p[0];
+            double gamma=params.gamma[0];
+            double s=params.s[0];
+            gm=new GrapheneModel(params.a,e2p,gamma,s,params.Td,Efield_x,Efield_y);
         }
-        else if(params.model==models::nlayer){            
-            std::vector<double> eps={params.e2p,params.e2p};
-            std::vector<double> g={params.gamma,0.39/au2eV};
-            std::vector<double> s={params.s,0.0};
-
+        else if(params.model==models::nlayer){
             gm=new NGraphene(tb,params.nlayers,
                         kxygrid,
-                        eps,g,s,
+                        params.e2p,params.gamma,params.s,
                         Efield_x,Efield_y);
         }
 
@@ -105,18 +104,18 @@ int main(int argc, char** argv){
         tfile_out<<std::setprecision(8);
 
         tfile_out<<"#";
-        tfile_out<<std::setw(19)<<"Time";
-        tfile_out<<std::setw(20)<<"Ax";
-        tfile_out<<std::setw(20)<<"Ay";
-        tfile_out<<std::setw(20)<<"Ex";
-        tfile_out<<std::setw(20)<<"Ey";
+        tfile_out<<std::setw(19)<<"Time(1)";
+        tfile_out<<std::setw(20)<<"Ax(2)";
+        tfile_out<<std::setw(20)<<"Ay(3)";
+        tfile_out<<std::setw(20)<<"Ex(4)";
+        tfile_out<<std::setw(20)<<"Ey(5)";
 
-        tfile_out<<std::setw(20)<<"Jx_intra";
-        tfile_out<<std::setw(20)<<"Jy_intra";
-        tfile_out<<std::setw(20)<<"Jx_inter";
-        tfile_out<<std::setw(20)<<"Jy_inter";
+        tfile_out<<std::setw(20)<<"Jx_intra(6)";
+        tfile_out<<std::setw(20)<<"Jy_intra(7)";
+        tfile_out<<std::setw(20)<<"Jx_inter(8)";
+        tfile_out<<std::setw(20)<<"Jy_inter(9)";
 
-        size_t col=6;
+        size_t col=10;
         for(size_t ist=0; ist<Nstates; ist++){
             std::string pop_str="dens["+std::to_string(ist+1)+"]("+std::to_string(col)+")";
             tfile_out<<std::setw(20)<<pop_str;

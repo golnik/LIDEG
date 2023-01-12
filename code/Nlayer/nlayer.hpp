@@ -331,11 +331,11 @@ private:
         double s0=_s[0];
         double s1=_s[1];
 
-        matrix2D_t Hii;
-        matrix2D_t Hij;
+        matrix2D_t Hii=matrix2D_t::Zero();
+        matrix2D_t Hij=matrix2D_t::Zero();
 
-        matrix2D_t Sii;
-        matrix2D_t Sij;
+        matrix2D_t Sii=matrix2D_t::Zero();
+        matrix2D_t Sij=matrix2D_t::Zero();
 
         complex_t fval =_tbm->f(kx,ky);
 
@@ -379,8 +379,8 @@ private:
         double s0=_s[0];
         double s1=_s[1];
 
-        matrix2D_t dHii;
-        matrix2D_t dHij;
+        matrix2D_t dHii=matrix2D_t::Zero();
+        matrix2D_t dHij=matrix2D_t::Zero();
 
         complex_t df;
         if(dir==0){
@@ -446,25 +446,30 @@ private:
                 double ei=evals(ist);
                 double ej=evals(jst);
 
-                auto veci=evecs.col(ist);
-                auto vecj=evecs.col(jst);
+                complex_t dip_x=0.;
+                complex_t dip_y=0.;
 
-                if(std::real(veci(0))<0){
-                    veci*=-1;
+                if(abs(ei-ej)>1.e-10){
+                    auto veci=evecs.col(ist);
+                    auto vecj=evecs.col(jst);
+
+                    if(std::real(veci(0))<0){
+                        veci*=-1;
+                    }
+
+                    if(std::real(vecj(0))<0){
+                        vecj*=-1;
+                    }
+
+                    dip_x=I*veci.dot(X*vecj)/(ei-ej);
+                    dip_y=I*veci.dot(Y*vecj)/(ei-ej);
                 }
-
-                if(std::real(vecj(0))<0){
-                    vecj*=-1;
-                }
-
-                complex_t dip_x=I*veci.dot(X*vecj)/(ei-ej);
-                complex_t dip_y=I*veci.dot(Y*vecj)/(ei-ej);
 
                 Dx(ist,jst)=dip_x;
-                Dx(jst,ist)=dip_x;
+                Dx(jst,ist)=std::conj(dip_x);
 
                 Dy(ist,jst)=dip_y;
-                Dy(jst,ist)=dip_y;
+                Dy(jst,ist)=std::conj(dip_y);
             }
         }
 

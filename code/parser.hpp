@@ -6,6 +6,7 @@
 
 #include <string>
 #include <fstream>
+#include <regex>
 
 #include <filesystem>
 namespace fs=std::filesystem;
@@ -13,6 +14,7 @@ namespace fs=std::filesystem;
 enum class kgrid_types: unsigned int {ucell=0, kpoint};
 enum class rgrid_types: unsigned int {ucell=0, rectan};
 enum class models: unsigned int {hommelhoff=0, nlayer};
+enum class stacking: unsigned int {A=0, B, C};
 
 struct Parameters{
     double tmin;
@@ -54,11 +56,13 @@ struct Parameters{
 
     models model;
     size_t nlayers;
+    std::vector<stacking> layers;
 
+    double d;
     double a;
-    double e2p;
-    double gamma;
-    double s;
+    std::vector<double> e2p;
+    std::vector<double> gamma;
+    std::vector<double> s;
     double Z;
     double Td;
 
@@ -73,21 +77,86 @@ struct Parameters{
     std::string prfile_fname;
 
     void print(std::ostream& out) const{
-        out<<tmin<<" "<<tmax<<" "<<Nt<<std::endl;
-        out<<err_abs<<" "<<err_rel<<std::endl;
+        out<<"********************************************\n";
+        out<<"********* PROPAGATION PARAMETERS: **********\n";
+        out<<"********************************************\n";
+        out<<std::fixed;
+        out<<std::setprecision(5);
+        out<<"\ttmin: "<<tmin*au2fs<<", fs\n";
+        out<<"\ttmax: "<<tmax*au2fs<<", fs\n";
+        out<<"\tNt: "<<Nt<<std::endl;
+        out<<std::scientific;
+        out<<"\tddt: "<<ddt*au2fs<<", fs\n";
+        out<<"\tabsolute error: "<<err_abs<<std::endl;
+        out<<"\trelative error: "<<err_rel<<std::endl;
 
-        //out<<"kx grid:"<<std::endl;
-        //out<<kx_min<<" "<<kx_max<<" "<<Nkx<<std::endl;
-        //out<<"ky grid:"<<std::endl;
-        //out<<ky_min<<" "<<ky_max<<" "<<Nky<<std::endl;
+        out<<"********************************************\n";
+        out<<"************ FIELD PARAMETERS: *************\n";
+        out<<"********************************************\n";
+        out<<"\tfield will be loaded from: "<<field_fname<<std::endl;
+        out<<std::scientific;
+        out<<"\tfield intensity: "<<E0*au2Vnm<<", V/nm\n";
 
-        out<<field_fname<<std::endl;
+        out<<"********************************************\n";
+        out<<"********* PARAMETERS OF THE MODEL: *********\n";
+        out<<"********************************************\n";
+        out<<std::fixed;
+        out<<std::setprecision(5);
 
-        out<<"Parameters of the model:"<<std::endl;
-        out<<"a: "<<a<<std::endl;
-        out<<"e2p: "<<e2p<<std::endl;
-        out<<"gamma: "<<gamma<<std::endl;
-        out<<"s: "<<s<<std::endl;
+        out<<"\tmodel name: ";
+        switch(model){
+            case models::hommelhoff:
+                out<<"Hommelhoff model\n";
+                break;
+            case models::nlayer:
+                out<<"nlayer numerical model\n";
+                break;
+        }
+
+        out<<"\tlattice constant: "<<a*au2A<<", A"<<std::endl;
+        out<<"\tnumber of layers: "<<nlayers<<std::endl;
+
+        if(nlayers!=1){
+            out<<"\tinterlayer distance: "<<d*au2A<<", A"<<std::endl;
+            out<<"\tlayers stacking: ";
+            for(auto it: layers){
+                switch(it){
+                    case stacking::A:
+                        out<<"A,";
+                        break;
+                    case stacking::B:
+                        out<<"B,";
+                        break;
+                    case stacking::C:
+                        out<<"C,";
+                        break;
+                }
+            }
+            out<<"\n";
+        }
+
+        out<<"\torbital energy: ";
+        for(auto it: e2p){
+            out<<it*au2eV<<", ";
+        }
+        out<<"eV\n";
+
+        out<<"\thopping energy: ";
+        for(auto it: gamma){
+            out<<it*au2eV<<", ";
+        }
+        out<<"eV\n";
+
+        out<<"\toverlap integral: ";
+        for(auto it: s){
+            out<<it<<", ";
+        }
+        out<<"\n";
+
+        out<<"\torbital charge: "<<Z<<std::endl;
+        out<<"\tcoherence time: "<<Td*au2fs<<", fs\n";
+
+        return;
     }
 };
 
@@ -196,25 +265,67 @@ public:
             throw std::string("The requested model does not exist!");
         }
 
-        std::string nlayers_str=ini.get("system").get("nlayers");
-        if(!nlayers_str.empty()){
-            _params.nlayers=std::stoi(nlayers_str); 
+        std::string layers_str=ini.get("system").get("layers");
+        if(!layers_str.empty()){
+            std::regex pattern("\\w+");
+            for(auto it=std::sregex_iterator(layers_str.begin(),layers_str.end(),pattern);
+                     it!=std::sregex_iterator(); it++){
+                std::smatch m=*it;
+                std::string lstr=m.str();
+                if(lstr=="A"){
+                    _params.layers.push_back(stacking::A);
+                }
+                else if(lstr=="B"){
+                    _params.layers.push_back(stacking::B);
+                }
+                else if(lstr=="C"){
+                    _params.layers.push_back(stacking::C);
+                }
+                else{
+                    throw std::string("The requested layers stacking does not exist!");
+                }
+            }    
         }
         else{
-            _params.nlayers=1;
+            _params.layers.push_back(stacking::A);
         }
+        _params.nlayers=_params.layers.size();
+
+        std::string d_str=ini.get("system").get("d");
+        _params.d=std::stod(d_str)/au2A;
 
         std::string a_str=ini.get("system").get("a");
         _params.a=std::stod(a_str)/au2A;
 
         std::string e2p_str=ini.get("system").get("e2p");
-        _params.e2p=std::stod(e2p_str)/au2eV;
+        if(!e2p_str.empty()){
+            _params.e2p=parse_array<double>(e2p_str);
+            for(size_t i=0; i<_params.e2p.size(); i++){
+                _params.e2p[i]/=au2eV;
+            }
+        }
+        else{
+            throw std::string("e2p parameter is not specified!");
+        }
 
         std::string gamma_str=ini.get("system").get("gamma");
-        _params.gamma=std::stod(gamma_str)/au2eV;
+        if(!gamma_str.empty()){
+            _params.gamma=parse_array<double>(gamma_str);
+            for(size_t i=0; i<_params.gamma.size(); i++){
+                _params.gamma[i]/=au2eV;
+            }
+        }
+        else{
+            throw std::string("gamma parameter is not specified!");
+        }
 
         std::string s_str=ini.get("system").get("s");
-        _params.s=std::stod(s_str);
+        if(!s_str.empty()){
+            _params.s=parse_array<double>(s_str);
+        }
+        else{
+            throw std::string("s parameter is not specified!");
+        }
 
         std::string Z_str=ini.get("system").get("Z");
         _params.Z=std::stod(Z_str);
@@ -250,6 +361,26 @@ public:
         _params.prfile_fname=(prfile_path/=ini.get("output").get("prfile")).c_str();        
     }
 private:
+    template<typename T>
+    std::vector<T> parse_array(const std::string& str) const{
+        std::vector<T> res;
+
+        std::regex regex_number("[+-]?(\\d+([.]\\d*)?([eE][+-]?\\d+)?|[.]\\d+([eE][+-]?\\d+)?)");
+        for(auto it=std::sregex_iterator(str.begin(),str.end(),regex_number);
+                 it!=std::sregex_iterator(); it++){
+            std::smatch m=*it;
+            std::string valstr=m.str();
+
+            std::istringstream ss(valstr);
+            T val;
+            ss>>val;
+
+            res.push_back(val);
+        }
+
+        return res;
+    }
+
     Parameters& _params;
 };
 

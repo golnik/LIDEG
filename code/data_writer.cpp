@@ -71,16 +71,15 @@ int main(int argc, char** argv){
         //create graphene model
         Graphene* gm;
         if(params.model==models::hommelhoff){
-            gm=new GrapheneModel(params.a,params.e2p,params.gamma,params.s,params.Td,E0,E0);
+            double e2p=params.e2p[0];
+            double gamma=params.gamma[0];
+            double s=params.s[0];
+            gm=new GrapheneModel(params.a,e2p,gamma,s,params.Td,E0,E0);
         }
-        else if(params.model==models::nlayer){            
-            std::vector<double> eps={params.e2p,params.e2p};
-            std::vector<double> g={params.gamma,0.39/au2eV};
-            std::vector<double> s={params.s,0.0};
-
+        else if(params.model==models::nlayer){
             gm=new NGraphene(tb,params.nlayers,
                         kxygrid,
-                        eps,g,s,
+                        params.e2p,params.gamma,params.s,
                         E0,E0);
         }
 
@@ -169,10 +168,20 @@ int main(int argc, char** argv){
         }
 
         for(size_t ist=0; ist<Nst; ist++){
+            std::string dEdx_str="dEdx["+std::to_string(ist+1)+"]("+std::to_string(col)+")";
+            col++;
+            std::string dEdy_str="dEdy["+std::to_string(ist+1)+"]("+std::to_string(col)+")";
+            col++;
+    
+            kout<<std::setw(20)<<dEdx_str;
+            kout<<std::setw(20)<<dEdy_str;
+        }
+
+        for(size_t ist=0; ist<Nst; ist++){
             for(size_t jst=ist+1; jst<Nst; jst++){
-                std::string dx_str="dx["+std::to_string(ist+1)+","+std::to_string(jst+1)+"]("+std::to_string(col)+")";
+                std::string dx_str="Dx["+std::to_string(ist+1)+","+std::to_string(jst+1)+"]("+std::to_string(col)+")";
                 col++;
-                std::string dy_str="dy["+std::to_string(ist+1)+","+std::to_string(jst+1)+"]("+std::to_string(col)+")";
+                std::string dy_str="Dy["+std::to_string(ist+1)+","+std::to_string(jst+1)+"]("+std::to_string(col)+")";
                 col++;
 
                 kout<<std::setw(20)<<dx_str;
@@ -236,25 +245,37 @@ int main(int argc, char** argv){
 
         //create graphene material
         Orbital* pz=new Pzorb_normal(params.Z);
-
-        //double l=3.46/au2A;
-
-        AtomsSet setA=GenerateGraphenePattern(pz,params.a,params.Nclx,params.Ncly,0.,0.,0.);
-        AtomsSet setB=GenerateGraphenePattern(pz,params.a,params.Nclx,params.Ncly,params.a/sqrt(3.),0.,0.);
-
-        setA.compute_on_grid(kxygrid);
-        setB.compute_on_grid(kxygrid);
-
-        //AtomsSet setAA=GenerateGraphenePattern(pz,params.a,params.Nclx,params.Ncly,params.a/sqrt(3.),0.,l);
-        //AtomsSet setBB=GenerateGraphenePattern(pz,params.a,params.Nclx,params.Ncly,0.,0.,l);
-
-
         Material graphene;
-        graphene.add_atomsset(setA);
-        graphene.add_atomsset(setB);
 
-        //graphene.add_atomsset(setAA);
-        //graphene.add_atomsset(setBB);
+        //generate graphene
+        for(size_t il=0; il<params.nlayers; il++){
+            double x=0.;//shift of the layer depending on stacking
+            
+            stacking ABC=params.layers[il];
+            switch(ABC){
+                case stacking::A:
+                    x=0.;
+                    break;
+                case stacking::B:
+                    x=params.a/sqrt(3.);
+                    break;
+                case stacking::C:
+                    x=2.*params.a/sqrt(3.);
+                    break;
+            }
+
+            double z=il*params.d;//position of the layer in z coordinate
+
+            //A..B atoms in graphene layer
+            AtomsSet setA=GenerateGraphenePattern(pz,params.a,params.Nclx,params.Ncly,x,0.,z);
+            AtomsSet setB=GenerateGraphenePattern(pz,params.a,params.Nclx,params.Ncly,x+params.a/sqrt(3.),0.,z);
+
+            setA.compute_on_grid(kxygrid);
+            setB.compute_on_grid(kxygrid);
+            
+            graphene.add_atomsset(setA);
+            graphene.add_atomsset(setB);
+        }
 
         //print atom positions to file
         std::ofstream atoms_out;
@@ -268,6 +289,16 @@ int main(int argc, char** argv){
         std::ofstream rout(params.prfile_fname);
         rout<<std::scientific;
         rout<<std::setprecision(15);
+
+        rout<<"#";
+
+        col=1;
+        for(size_t ist=0; ist<Nst; ist++){
+            std::string Psistr="Psi["+std::to_string(ist+1)+"]("+std::to_string(col)+")";
+            rout<<std::setw(25)<<Psistr;
+            col++;
+        }
+        rout<<std::endl;
 
         for(size_t ix=0; ix<params.Nx; ix++){
             std::cout<<"ix: "<<ix<<std::endl;

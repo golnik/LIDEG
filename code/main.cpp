@@ -114,22 +114,16 @@ int main(int argc, char** argv){
         }
 
         if(params.model==models::hommelhoff){
-            gm=new GrapheneModel(params.a,params.e2p,params.gamma,params.s,params.Td,Efield_x,Efield_y);
+            double e2p=params.e2p[0];
+            double gamma=params.gamma[0];
+            double s=params.s[0];
+            gm=new GrapheneModel(params.a,e2p,gamma,s,params.Td,Efield_x,Efield_y);
         }
-        else if(params.model==models::nlayer){            
-            std::vector<double> eps={params.e2p,params.e2p};
-            std::vector<double> g={params.gamma,0.39/au2eV};
-            std::vector<double> s={params.s,0.0};
-
+        else if(params.model==models::nlayer){
             gm=new NGraphene(tb,params.nlayers,
                         kxygrid,
-                        eps,g,s,
+                        params.e2p,params.gamma,params.s,
                         Efield_x,Efield_y);
-        }
-        else{
-            //GrapheneModel2 gm2(params.a,params.e2p,params.gamma,params.s,
-            //                Efield_x,Efield_y,
-            //                Afield_x,Afield_y);
         }
 
         size_t Nstates=gm->nstates();

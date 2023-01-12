@@ -18,9 +18,12 @@ class InputParams:
         config.read(fname)
 
         #read model parameters
+        self.layers = config['system']['layers']
+        self.nlayers = sum(self.layers.count(st) for st in ['A','B','C'])
+
         self.a = float(config['system']['a'])/au2A
-        self.s = float(config['system']['s'])
-        self.Z = float(config['system']['Z'])
+        #self.s = float(config['system']['s'])
+        #self.Z = float(config['system']['Z'])
 
         #read tgrid
         self.tmin = float(config['propagator']['tmin'])/au2fs
@@ -45,10 +48,10 @@ class InputParams:
         self.Nz = int(config['rgrid']['Nz'])
 
         #read kgrid
-        #self.dkx = float(config['kgrid']['dkx'])*au2nm
+        self.dkx = float(config['kgrid']['dkx'])*au2nm
         self.Nkx = int(config['kgrid']['Nkx'])
 
-        #self.dky = float(config['kgrid']['dky'])*au2nm
+        self.dky = float(config['kgrid']['dky'])*au2nm
         self.Nky = int(config['kgrid']['Nky'])
 
         self.Nt = int(config['propagator']['Nt'])
@@ -60,6 +63,8 @@ class InputParams:
         self.rhofile_fname  = os.path.join(self.outdir,config['output']['rhofile'])
         self.densfile_fname = os.path.join(self.outdir,config['output']['densfile'])
         self.afile_fname    = os.path.join(self.outdir,config['output']['afile'])
+        self.pkfile_fname   = os.path.join(self.outdir,config['output']['pkfile'])
+        self.prfile_fname   = os.path.join(self.outdir,config['output']['prfile'])
 
         #create arrays of atom coordinates
         if os.path.isfile(self.afile_fname):
@@ -70,15 +75,11 @@ class InputParams:
                 for ia in range(Natoms):
                     data = file.readline().split()
 
-                    #A1 atom
                     x = float(data[0])
                     y = float(data[1])
-                    self.atom_coords.append([x,y])
+                    z = float(data[2])
 
-                    #A2 atom
-                    x = float(data[2])
-                    y = float(data[3])
-                    self.atom_coords.append([x,y])
+                    self.atom_coords.append([x,y,z])
 
         #create grids
         self.tgrid   = np.linspace(self.tmin,self.tmax,self.Nt)
@@ -87,25 +88,19 @@ class InputParams:
         if os.path.isfile(self.rgfile_fname):
             with open(self.rgfile_fname,'r') as file:
                 rgrid_data = file.readlines()
-            Nxy = int(rgrid_data[0])
+            Nxyz = int(rgrid_data[0])
 
-            self.xgrid = []
-            self.ygrid = []
+            self.xyzgrid = []
 
-            for iline in range(Nxy):
+            for iline in range(Nxyz):
                 data = rgrid_data[iline+1].split()
                 x = float(data[0])
                 y = float(data[1])
+                z = float(data[2])
 
-                self.xgrid.append(x)
-                self.ygrid.append(y)
+                self.xyzgrid.append([x,y,z])
 
-            self.xgrid = np.asarray(self.xgrid)
-            self.ygrid = np.asarray(self.ygrid)
-
-            #self.xgrid = np.linspace(self.xmin,self.xmax,self.Nx)
-            #self.ygrid = np.linspace(self.ymin,self.ymax,self.Ny)
-            self.zgrid = np.linspace(self.zmin,self.zmax,self.Nz)
+            self.xyzgrid = np.asarray(self.xyzgrid)
 
         #we read kgrid from file
         if os.path.isfile(self.kgfile_fname):
@@ -113,19 +108,13 @@ class InputParams:
                 kgrid_data = file.readlines()
             Nkxky = int(kgrid_data[0])
 
-            self.kx_grid = []
-            self.ky_grid = []
+            self.kxkygrid = []
 
             for iline in range(Nkxky):
                 data = kgrid_data[iline+1].split()
                 kx = float(data[0])
                 ky = float(data[1])
 
-                self.kx_grid.append(kx)
-                self.ky_grid.append(ky)
+                self.kxkygrid.append([kx,ky])
 
-            self.kx_grid = np.asarray(self.kx_grid)
-            self.ky_grid = np.asarray(self.ky_grid)            
-
-            #self.kx_grid = np.float_(kgrid_data[1].split())
-            #self.ky_grid = np.float_(kgrid_data[3].split())
+            self.kxkygrid = np.asarray(self.kxkygrid)
