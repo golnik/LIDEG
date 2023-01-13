@@ -1,27 +1,25 @@
 #include <iostream>
-#include <vector>
 
 #include "mini/ini.h"
 
 #include "utils/utils.hpp"
 #include "utils/grid.hpp"
-#include "utils/multiarray.hpp"
 #include "parser.hpp"
 #include "external_field.hpp"
+#include "graphenemodel.hpp"
 #include "model1/graphene.hpp"
-#include "model1/WFs.hpp"
+//#include "model1/WFs.hpp"
+#include "model2/graphene2.hpp"
+#include "Nlayer/nlayer.hpp"
 
-#include <boost/numeric/ublas/vector.hpp>
+#include "WFs.hpp"
+
 #include <boost/numeric/ublas/matrix.hpp>
 using namespace boost::numeric::ublas;
-
-#include <boost/format.hpp>
-
+typedef vector<complex_t> vector_t;
 typedef matrix<double> matrix_t;
 
-#define Nx_max 64
-#define Ny_max 64
-#define Nz_max 64
+#include <boost/format.hpp>
 
 int main(int argc, char** argv){
     try{
@@ -51,6 +49,8 @@ int main(int argc, char** argv){
         double t0_fit=tgrid_fit[0]/au2fs;
         double dt_fit=(tgrid_fit[1]-tgrid_fit[0])/au2fs;
 
+        ExternalField* E0=nullptr;
+
         ExternalField* Afield_x=new ExternalFieldFromData(Adata_x_fit,t0_fit,dt_fit,params.E0);
         ExternalField* Afield_y=new ExternalFieldFromData(Adata_y_fit,t0_fit,dt_fit,params.E0);
         ExternalField* Efield_x=new ExternalFieldFromData(Edata_x_fit,t0_fit,dt_fit,params.E0);
@@ -59,275 +59,340 @@ int main(int argc, char** argv){
         auto tgrid=create_grid(params.tmin,params.tmax,params.Nt);
         double time=tgrid[tstep];
 
+        //get vector potential at the given time step
         double Ax=(*Afield_x)(time);
         double Ay=(*Afield_y)(time);
 
-        //prepare xyz grids
-        /*vector<double> a1(2);
-        vector<double> a2(2);
-        vector<double> origin(2);
+        std::cout<<"Ax: "<<Ax<<" Ay: "<<Ay<<std::endl;
 
-        if(params.rgrid_type==regular){
-            origin(0)=params.xmin;
-            origin(1)=params.ymin;
+        HexagonalTBModel* tb=new HexagonalTBModel(params.a);
 
-            a1(0)=(params.xmax-params.xmin)/(params.Nx-1);
-            a1(1)=0.;
+        //create kgrid
+        Grid2D* kxygrid;
+        Grid2D* Akxygrid;
+        if(params.kgrid_type==kgrid_types::ucell){
+            double Ox=0.;
+            double Oy=0.;
+            double b1x=2.*M_PI/(sqrt(3.)*params.a);
+            double b1y=2.*M_PI/(params.a);
+            double b2x=b1x;
+            double b2y=-b1y;
 
-            a2(0)=0.;
-            a2(1)=(params.ymax-params.ymin)/(params.Ny-1);
-        }
-        else if(params.rgrid_type==ucell){
-            origin(0)=-(1./sqrt(3.))*params.a;
-            origin(1)=0.0;
-
-            a1(0)=params.a/2.*sqrt(3.);
-            a1(1)=params.a/2.;
-            a1/=(params.Nx-1);
-            
-            a2(0)=params.a/2.*sqrt(3.);
-            a2(1)=-params.a/2.;
-            a2/=(params.Ny-1);
-        }
-
-        //write grids to file
-        std::ofstream grid_out(params.rgfile_fname);
-        grid_out<<params.Nx*params.Ny<<std::endl;
-
-        grid_out<<std::scientific;
-        grid_out<<std::setprecision(8);
-
-        MultiArray<std::pair<double,double>,Nx_max,Ny_max> xygrid;
-        for(size_t ix=0; ix<params.Nx; ix++){
-            for(size_t iy=0; iy<params.Ny; iy++){
-                auto o=origin+ix*a1+iy*a2;
-                
-                //double x=xgrid[ix];
-                //double y=ygrid[iy];
-                double x=o(0);
-                double y=o(1);
-
-                xygrid(ix,iy)=std::make_pair(x,y);
-                grid_out<<std::setw(20)<<x;
-                grid_out<<std::setw(20)<<y<<std::endl;
-
-                //o+=a2;
-            }
-            //o+=a1;
-        }
-        grid_out.close();*/
-
-        double Ox=-(1./sqrt(3.))*params.a;
-        double Oy=0.;
-        double a1x=params.a/2.*sqrt(3.);
-        double a1y=params.a/2.;
-        double a2x=a1x;
-        double a2y=-a1y;
-
-        Grid2D* xygrid=new UCellGrid2D(Ox,Oy,a1x,a1y,params.Nx,a2x,a2y,params.Ny);
-
-        //write grids to file
-        std::ofstream grid_out(params.rgfile_fname);
-        grid_out<<params.Nx*params.Ny<<std::endl;
-
-        grid_out<<std::scientific;
-        grid_out<<std::setprecision(8);
-
-        for(size_t ix=0; ix<params.Nx; ix++){
-            for(size_t iy=0; iy<params.Ny; iy++){
-                grid_out<<std::setw(20)<<(*xygrid)(ix,iy)[0];
-                grid_out<<std::setw(20)<<(*xygrid)(ix,iy)[1]<<std::endl;
-            }
-        }
-        grid_out.close();
-
-        Grid1D* zgrid;
-        Pzorb* pz;
-        if(params.Nz==0 || params.Nz==1){
-            zgrid=new RegularGrid1D(0.0,1.0,1);
-            pz=new Pzorb_integr(params.Z);
+            kxygrid=new UCellGrid2D(Ox,Oy,b1x,b1y,params.Nkx,b2x,b2y,params.Nky);
+            Akxygrid=new UCellGrid2D(Ox+Ax,Oy+Ay,b1x,b1y,params.Nkx,b2x,b2y,params.Nky);
         }
         else{
-            zgrid=new RegularGrid1D(params.zmin,params.zmax,params.Nz);
-            pz=new Pzorb_normal(params.Z);
+            throw std::string("Integration is possible only for kgrid_type=ucell!");
         }
-        
-        //create graphene model
-        GrapheneModel gm(params.a,params.e2p,params.gamma,params.s,params.Td,
-                         Efield_x,Efield_y);
 
-        //create graphene layer
-        double R0x=0.5*(params.xmax+params.xmin);
-        double R0y=0.5*(params.ymax+params.ymin);        
-        GrapheneLayer gl(params.a,
-                params.Nclx,params.Ncly,
-                R0x,R0y,params.Rmax);
-
-        //print atom positions to file
-        std::ofstream atoms_out;
-        atoms_out.open(params.afile_fname);
-        gl.print_atoms(atoms_out);
-        atoms_out.close();
-
-        //area of BZ
+        Integrator2D* integrator_kxky=new Integrator2D(kxygrid);
         double SBZ=pow(2.*M_PI,2.)/(0.5*sqrt(3.)*params.a*params.a);
 
-        //create Dirac points
-        //std::vector<double> Dirac_Kx;
-        //std::vector<double> Dirac_Ky;
-        //std::vector<int> Dirac_type;
+        //create graphene model
+        Graphene* gm;
+        if(params.model==models::hommelhoff){
+            double e2p=params.e2p[0];
+            double gamma=params.gamma[0];
+            double s=params.s[0];
+            gm=new GrapheneModel(params.a,e2p,gamma,s,params.Td,E0,E0);
+        }
+        else if(params.model==models::nlayer){
+            gm=new NGraphene(tb,params.nlayers,
+                        kxygrid,
+                        params.e2p,params.gamma,params.s,
+                        E0,E0);
+        }
 
-        //gm.get_Dirac_points(Dirac_Kx,Dirac_Ky,Dirac_type);
-        //size_t nK=Dirac_Kx.size();
+        //create rgrid
+        Grid2D* xygrid;
+        if(params.rgrid_type==rgrid_types::rectan){
+            Grid1D* xgrid=new RegularGrid1D(params.xmin,params.xmax,params.Nx);
+            Grid1D* ygrid=new RegularGrid1D(params.ymin,params.ymax,params.Ny);
 
-        //read density from file
+            xygrid=new RegularGrid2D(xgrid,ygrid);
+        }
+        else if(params.rgrid_type==rgrid_types::ucell){
+            double Ox=-(1./sqrt(3.))*params.a;
+            double Oy=0.;
+            double a1x=params.a/2.*sqrt(3.);
+            double a1y=params.a/2.;
+            double a2x=a1x;
+            double a2y=-a1y;
+
+            xygrid=new UCellGrid2D(Ox,Oy,a1x,a1y,params.Nx,a2x,a2y,params.Ny);
+        }
+
+        Grid1D* zgrid=new RegularGrid1D(params.zmin,params.zmax,params.Nz);
+
+        Integrator2D* integrator_xy=new Integrator2D(xygrid);
+        Integrator1D* integrator_z=new Integrator1D(zgrid);
+
+        size_t Nst=gm->nstates();
+
+        std::vector<matrix_t> dens_data(Nst);
+        std::vector<matrix_t> coh_re_data(Nst*(Nst-1)/2);
+        std::vector<matrix_t> coh_im_data(Nst*(Nst-1)/2);
+
+        //read data from file
         std::string dens_t_fname=params.densfile_fname;
         replace(dens_t_fname,"%it",boost::str(boost::format("%06d") % (tstep+1)));
 
-        std::cout<<"Reciprocal space density file: "<<dens_t_fname<<std::endl;
+        std::cout<<dens_t_fname<<std::endl;
 
-        matrix_t dens_vv=read_2D_from_file<matrix_t>(dens_t_fname,0,params.Nkx,params.Nky);
-        matrix_t dens_cc=read_2D_from_file<matrix_t>(dens_t_fname,1,params.Nkx,params.Nky);
-        matrix_t dens_cv_re=read_2D_from_file<matrix_t>(dens_t_fname,2,params.Nkx,params.Nky);
-        matrix_t dens_cv_im=read_2D_from_file<matrix_t>(dens_t_fname,3,params.Nkx,params.Nky);
+        size_t col=0;
+        for(size_t ist=0; ist<Nst; ist++){
+            dens_data[ist]=read_2D_from_file<matrix_t>(dens_t_fname,col,params.Nkx,params.Nky);
+            col++;
+        }
 
-        //array for real space data
-        MultiArray<vector<double>,Nx_max,Ny_max,Nz_max> res;
+        size_t indx=0;
+        for(size_t ist=0; ist<Nst; ist++){
+            for(size_t jst=ist+1; jst<Nst; jst++){
+                coh_re_data[indx]=read_2D_from_file<matrix_t>(dens_t_fname,col,params.Nkx,params.Nky);
+                col++;
+                coh_im_data[indx]=read_2D_from_file<matrix_t>(dens_t_fname,col,params.Nkx,params.Nky);
+                col++;
+                indx++;
+            }
+        }
+
+        //write rgrids to file
+        /*std::ofstream rgrid_out(params.rgfile_fname);
+        rgrid_out<<params.Nx*params.Ny*params.Nz<<std::endl;
+
+        rgrid_out<<std::scientific;
+        rgrid_out<<std::setprecision(8);
+
         for(size_t ix=0; ix<params.Nx; ix++){
             for(size_t iy=0; iy<params.Ny; iy++){
-                for(size_t iz=0; iz<zgrid->size(); iz++){
-                    res(ix,iy,iz)=zero_vector<double>(5);
+                for(size_t iz=0; iz<params.Nz; iz++){
+                    double x=(*xygrid)(ix,iy)[0];
+                    double y=(*xygrid)(ix,iy)[1];
+                    double z=(*zgrid)[iz];
+
+                    rgrid_out<<std::setw(20)<<x;
+                    rgrid_out<<std::setw(20)<<y;
+                    rgrid_out<<std::setw(20)<<z;
+                    rgrid_out<<std::endl;
+                }
+            }
+        }
+        rgrid_out.close();*/
+
+        MultiIndex indx_kxkyst({params.Nkx,params.Nky,Nst});
+        size_t N_kxkyst=indx_kxkyst.size();
+
+        MultiIndex indx_xyzst({params.Nx,params.Ny,params.Nz,Nst});
+        size_t N_xyzst=indx_xyzst.size();
+
+        //compute eigenstates in reciprocal space
+        std::vector<vector_t> vecs(N_kxkyst);
+
+        for(size_t ist=0; ist<Nst; ist++){
+            for(size_t ikx=0; ikx<params.Nkx; ikx++){
+                for(size_t iky=0; iky<params.Nky; iky++){
+                    //we compute vectors using A-shifted grid!
+                    double kx=(*Akxygrid)(ikx,iky)[0];
+                    double ky=(*Akxygrid)(ikx,iky)[1];
+
+                    size_t indx_ikxikyist=indx_kxkyst({ikx,iky,ist});
+                    vecs[indx_ikxikyist]=gm->get_state(kx,ky,ist);
                 }
             }
         }
 
-        //create kgrid
-        double Okx=0.;
-        double Oky=0.;
-        double b1x=2.*M_PI/(sqrt(3.)*params.a);
-        double b1y=2.*M_PI/(params.a);
-        double b2x=b1x;
-        double b2y=-b1y;
+        //create graphene material
+        Orbital* pz=new Pzorb_normal(params.Z);
+        Material graphene;
 
-        /*double Okx=0.;
-        double Oky=M_PI;
-        double b1x=M_PI-Okx;
-        double b1y=2.*M_PI-Oky;
-        double b2x=M_PI-Okx;
-        double b2y=0.-Oky;*/
+        //generate graphene
+        for(size_t il=0; il<params.nlayers; il++){
+            double x=0.;//shift of the layer depending on stacking
+            
+            stacking ABC=params.layers[il];
+            switch(ABC){
+                case stacking::A:
+                    x=0.;
+                    break;
+                case stacking::B:
+                    x=params.a/sqrt(3.);
+                    break;
+                case stacking::C:
+                    x=2.*params.a/sqrt(3.);
+                    break;
+            }
 
-        Grid2D* kxygrid=new UCellGrid2D(Okx,Oky,b1x,b1y,params.Nkx,b2x,b2y,params.Nky);
-        Integrator2D* integrator=new Integrator2D(kxygrid);
+            double z=il*params.d;//position of the layer in z coordinate
 
-        Grid2D* kxygridA=new UCellGrid2D(Okx+Ax,Oky+Ay,b1x,b1y,params.Nkx,b2x,b2y,params.Nky);
+            //A..B atoms in graphene layer
+            AtomsSet setA=GenerateGraphenePattern(pz,params.a,params.Nclx,params.Ncly,x,0.,z);
+            AtomsSet setB=GenerateGraphenePattern(pz,params.a,params.Nclx,params.Ncly,x+params.a/sqrt(3.),0.,z);
 
-        WFs wfs(&gm,&gl,pz);
-        WFs_grid wfs_g(&gm,&gl,pz,kxygridA);
+            setA.compute_on_grid(kxygrid);
+            setB.compute_on_grid(kxygrid);
+            
+            graphene.add_atomsset(setA);
+            graphene.add_atomsset(setB);
+        }
 
-        //create multi grid
-        //size_t Nmulti=params.Nkx*params.Nky;
-        //double* mgrid=new double [2*Nmulti];
-        //double* mres=new double [Nmulti];
+        //print atom positions to file
+        /*std::ofstream atoms_out;
+        atoms_out.open(params.afile_fname);
+        graphene.print_atoms(atoms_out);
+        atoms_out.close();*/
 
-        //size_t indx=0;
-        //for(size_t ikx=0; ikx<params.Nkx; ikx++){
-        //    for(size_t iky=0; iky<params.Nky; iky++){
-        //        mgrid[indx         ]=ikx;
-        //        mgrid[indx+Nmulti  ]=iky;
-        //        indx++;
-        //    }
-        //}
+        MultiIndex indx_xyz({params.Nx,params.Ny,params.Nz});
+        size_t N_xyz=indx_xyz.size();
+        std::vector<double> Psi(N_xyz);
 
-        /*double progress=0.;
-        double dP=1./(static_cast<double>(params.Nx)*static_cast<double>(nK));
-        for(size_t iK=0; iK<nK; iK++){//loop over Dirac points
-            double Kx=Dirac_Kx[iK];
-            double Ky=Dirac_Ky[iK];
-            double Ktype=Dirac_type[iK];
+        //output real space data
+        std::string rho_t_fname=params.rhofile_fname;
+        replace(rho_t_fname,"%it",boost::str(boost::format("%06d") % (tstep+1)));
+        std::ofstream rho_t_out(rho_t_fname);
 
-            double kxmin=Kx-params.dkx;
-            double kxmax=Kx+params.dkx;
-            double kymin=Ky-params.dky;
-            double kymax=Ky+params.dky;
+        std::cout<<"Real space density will be written to: "<<rho_t_fname<<std::endl;
 
-            auto kx_grid=create_grid(kxmin,kxmax,params.Nkx,params.kgrid_type);
-            auto ky_grid=create_grid(kymin,kymax,params.Nky,params.kgrid_type);
-
-            //create WFs model
-            WFs wfs(&gm,&gl,params.Z);
-            WFs_grid wfs_g(&gm,&gl,params.Z,kx_grid,ky_grid);
-
-            //double dkx=kx_grid[1]-kx_grid[0];
-            //double dky=ky_grid[1]-ky_grid[0];
-
-            //3D real-space densities
-            for(size_t ix=0; ix<params.Nx; ix++){
-                progress+=dP;
-                if((ix%static_cast<int>(2*log2(params.Nx)))==0){
-                    printProgress(progress);
-                }
-
-                for(size_t iy=0; iy<params.Ny; iy++){
-                    for(size_t iz=0; iz<params.Nz; iz++){
-                        //double x=xgrid[ix];
-                        //double y=ygrid[iy];
-                        //double x=xygrid(ix,iy).first;
-                        //double y=xygrid(ix,iy).second;
-                        double x=(*xygrid)(ix,iy)[0];
-                        double y=(*xygrid)(ix,iy)[1];
-                        double z=zgrid[iz];
-
-                        res(ix,iy,iz)+=integrate(params.Nkx,params.Nky,
-                            [params,
-                            dens_vv,dens_cc,dens_cv_re,dens_cv_im,
-                            Ktype,SBZ,
-                            &wfs,&wfs_g,
-                            kx_grid,ky_grid,
-                            x,y,z](const size_t& ikx_K, const size_t& iky_K){
-                                size_t ikx=0;
-                                size_t iky=0;
-                                if(Ktype==0){//normal indices for K point
-                                    ikx=ikx_K;
-                                    iky=iky_K;
-                                }
-                                else{//inverse indices for K' point
-                                    ikx=ikx_K;
-                                    iky=params.Nky-iky_K-1;
-                                }
-
-                                complex_t dens_cv=dens_cv_re(ikx,iky)+I*dens_cv_im(ikx,iky);
-
-                                complex_t psip=wfs_g.psip(x,y,z,ikx_K,iky_K);
-                                complex_t psim=wfs_g.psim(x,y,z,ikx_K,iky_K);
-
-                                double rho_vv=pow(std::abs(psip),2.);
-                                double rho_cc=pow(std::abs(psim),2.);
-                                complex_t rho_vc=std::conj(psip)*psim;
-
-                                double rho_t=dens_vv(ikx,iky)*rho_vv
-                                            +dens_cc(ikx,iky)*rho_cc;
-                                            //+2.*std::real(dens_cv*rho_vc);
-
-                                double res=2.*3.*(2./SBZ)*(rho_t-rho_vv);
-
-                                //double res=rho_cc-rho_vv;
-
-                                //double res=std::abs(wfs_g.psip(x,y,z,ikx_K,iky_K))
-                                //          -std::abs(wfs.psip(x,y,z,kx_grid[ikx],ky_grid[iky]));
-
-                                return res;
-                            },
-                            kxmin,kxmax,
-                            kymin,kymax                    
-                        );
-                    }//z loop
-                }//y loop        
-            }//x loop
-        }//loop over Dirac points        
-        */
+        rho_t_out<<std::scientific;
+        rho_t_out<<std::setprecision(15);
+        rho_t_out<<"#"<<std::setw(24)<<"rho_nocoh";
+        rho_t_out<<     std::setw(25)<<"rho_coh";
+        rho_t_out<<     std::setw(25)<<"rho_total";
+        rho_t_out<<std::endl;   
 
         //3D real-space densities
         for(size_t ix=0; ix<params.Nx; ix++){
+            std::cout<<"ix: "<<ix<<std::endl;
+            for(size_t iy=0; iy<params.Ny; iy++){
+                for(size_t iz=0; iz<params.Nz; iz++){
+                    double x=(*xygrid)(ix,iy)[0];
+                    double y=(*xygrid)(ix,iy)[1];
+                    double z=(*zgrid)[iz];
+
+                    //integrate in reciprocal space                        
+                    auto func=[x,y,z,
+                        &dens_data,
+                        &coh_re_data,&coh_im_data,
+                        Nst,
+                        &indx_kxkyst,
+                        &vecs,&graphene](const size_t& ikx, const size_t& iky){
+
+                        //we output:
+                        //1..Nst A-modified eigenstates,
+                        //rho_nocoh
+                        vector<double> res(6);
+
+                        //compute Bloch functions
+                        std::vector<complex_t> BPhis(Nst);
+                        std::vector<complex_t> dxBPhis(Nst);
+                        std::vector<complex_t> dyBPhis(Nst);
+                        for(size_t ist=0; ist<Nst; ist++){
+                            BPhis[ist]=graphene.PhiI(ist,x,y,z,ikx,iky);
+                            //dxBPhis[ist]=graphene.dPhiI(ist,x,y,z,ikx,iky,0);
+                            //dyBPhis[ist]=graphene.dPhiI(ist,x,y,z,ikx,iky,1);
+                        }
+
+                        //compute eigenstates
+                        std::vector<complex_t> Psis(Nst);
+                        std::vector<complex_t> dxPsis(Nst);
+                        for(size_t ist=0; ist<Nst; ist++){
+                            complex_t Psi=0.;
+                            complex_t dxPsi=0.;
+                            for(size_t jst=0; jst<Nst; jst++){
+                                size_t indx_ikxikyist=indx_kxkyst({ikx,iky,ist});
+                                size_t indx_ikxikyjst=indx_kxkyst({ikx,iky,jst});
+                                Psi+=vecs[indx_ikxikyist][jst]*BPhis[jst];
+                                dxPsi+=vecs[indx_ikxikyist][jst]*dxBPhis[jst];
+                            }
+                            Psis[ist]=Psi;
+                            dxPsis[ist]=dxPsi;
+                        }
+
+                        //compute non-coherent rho
+                        double rho_nocoh=0.;
+                        for(size_t ist=0; ist<Nst; ist++){
+                            rho_nocoh+=dens_data[ist](ikx,iky)*std::norm(Psis[ist]);
+                        }
+                        res(0)=rho_nocoh;
+
+                        //compute coherent rho
+                        double rho_coh=0.;
+                        size_t indx=0;
+                        for(size_t ist=0; ist<Nst; ist++){
+                            for(size_t jst=ist+1; jst<Nst; jst++){
+                                double re=coh_re_data[indx](ikx,iky);
+                                double im=coh_im_data[indx](ikx,iky);
+                                complex_t coh=re+I*im;
+
+                                complex_t psi_istjst=std::conj(Psis[ist])*Psis[jst];
+
+                                rho_coh+=2.*std::real(coh*psi_istjst);
+
+                                indx++;
+                            }
+                        }
+                        res(1)=rho_coh;
+
+                        //total rho
+                        res(2)=rho_nocoh+rho_coh;
+
+                        //compute non-coherent current
+                        /*double Jx_nocoh=0.;
+                        for(size_t ist=0; ist<Nst; ist++){
+                            Jx_nocoh+=dens_data[ist](ikx,iky)*(
+                                std::real(Psis[ist])*std::imag(dxPsis[ist])-std::imag(Psis[ist])*std::real(dxPsis[ist]));
+                        }
+                        res(3)=Jx_nocoh;*/
+
+                        //compute coherent current
+                        //res(4)=;
+                        
+                        //total current
+                        //res(5)=;
+
+                        return res;
+                    };
+
+                    vector<double> res=zero_vector<double>(6);
+                    integrator_kxky->trapz(func,res);
+                    res*=2./SBZ;//normalize for area of the BZ
+
+                    size_t indx_ixiyiz=indx_xyz({ix,iy,iz});
+                    Psi[indx_ixiyiz]=res(0);
+
+                    //write data to file
+                    for(size_t ist=0; ist<res.size(); ist++){
+                        rho_t_out<<std::setw(25)<<res(ist);
+                    }
+
+                    rho_t_out<<std::endl;
+                }
+            }
+        }
+        rho_t_out.close();
+
+        //integrate in real space
+        //integrate in xy coordinates
+        std::vector<double> res_xy(params.Nz);
+        for(size_t iz=0; iz<zgrid->size(); iz++){
+            auto int_xy=[iz,&Psi,&indx_xyz](const size_t& ix, const size_t& iy){
+                size_t indx_ixiyiz=indx_xyz({ix,iy,iz});
+                return Psi[indx_ixiyiz];
+            };
+            double res=0.;
+            integrator_xy->trapz(int_xy,res);
+            res_xy[iz]=res;
+        }
+
+        //integrate in z coordinate
+        double sum=0;
+        integrator_z->trapz(
+            [&res_xy](const size_t& iz){
+                return res_xy[iz];
+            },sum);
+
+        std::cout<<"XYZkxky integral: "<<sum<<std::endl;
+
+        /*for(size_t ix=0; ix<params.Nx; ix++){
             for(size_t iy=0; iy<params.Ny; iy++){
                 for(size_t iz=0; iz<zgrid->size(); iz++){
                     double x=(*xygrid)(ix,iy)[0];
@@ -400,22 +465,7 @@ int main(int argc, char** argv){
                 }
             }
         }
-
-        //output real space data
-        std::string rho_t_fname=params.rhofile_fname;
-        replace(rho_t_fname,"%it",boost::str(boost::format("%06d") % (tstep+1)));
-        std::ofstream rho_t_out(rho_t_fname);
-
-        std::cout<<"Real space density will be written to: "<<rho_t_fname<<std::endl;
-
-        rho_t_out<<std::scientific;
-        rho_t_out<<std::setprecision(15);
-        rho_t_out<<"#"<<std::setw(24)<<"rho_vv";
-        rho_t_out<<     std::setw(25)<<"rho_cc";
-        rho_t_out<<     std::setw(25)<<"rho_nocoh";
-        rho_t_out<<     std::setw(25)<<"rho_coh";
-        rho_t_out<<     std::setw(25)<<"rho_total";
-        rho_t_out<<std::endl;        
+     
         for(size_t ix=0; ix<params.Nx; ix++){
             for(size_t iy=0; iy<params.Ny; iy++){
                 for(size_t iz=0; iz<zgrid->size(); iz++){

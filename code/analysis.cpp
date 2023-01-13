@@ -7,8 +7,11 @@
 #include "utils/multiarray.hpp"
 #include "parser.hpp"
 #include "external_field.hpp"
+#include "graphenemodel.hpp"
 #include "model1/graphene.hpp"
 #include "model1/WFs.hpp"
+#include "model2/graphene2.hpp"
+#include "Nlayer/nlayer.hpp"
 
 #include <boost/numeric/ublas/matrix.hpp>
 using namespace boost::numeric::ublas;
@@ -53,36 +56,44 @@ int main(int argc, char** argv){
         ExternalField* Efield_y=new ExternalFieldFromData(Edata_y_fit,t0_fit,dt_fit,params.E0);
 
         //create graphene model
-        GrapheneModel gm(params.a,params.e2p,params.gamma,params.s,params.Td,
-                         Efield_x,Efield_y);
+        HexagonalTBModel* tb=new HexagonalTBModel(params.a);
+        Graphene* gm;
 
         //create kgrid
-        double Okx=0.;
-        double Oky=0.;
-        double b1x=2.*M_PI/(sqrt(3.)*params.a);
-        double b1y=2.*M_PI/(params.a);
-        double b2x=b1x;
-        double b2y=-b1y;
+        Grid2D* kxygrid;
 
-        /*double Okx=0.;
-        double Oky=M_PI;
-        double b1x=M_PI-Okx;
-        double b1y=2.*M_PI-Oky;
-        double b2x=M_PI-Okx;
-        double b2y=0.-Oky;*/
+        if(params.kgrid_type==kgrid_types::ucell){
+            double Ox=0.;
+            double Oy=0.;
+            double b1x=2.*M_PI/(sqrt(3.)*params.a);
+            double b1y=2.*M_PI/(params.a);
+            double b2x=b1x;
+            double b2y=-b1y;
 
-        Grid2D* kxygrid=new UCellGrid2D(Okx,Oky,b1x,b1y,params.Nkx,b2x,b2y,params.Nky);
+            kxygrid=new UCellGrid2D(Ox,Oy,b1x,b1y,params.Nkx,b2x,b2y,params.Nky);
+        }
+        else{
+            throw std::string("Integration is possible only for kgrid_type=ucell!");
+        }
 
         //area of BZ
+        Integrator2D* integrator=new Integrator2D(kxygrid);
         double SBZ=pow(2.*M_PI,2.)/(0.5*sqrt(3.)*params.a*params.a);
 
-        //create Dirac points
-        //std::vector<double> Dirac_Kx;
-        //std::vector<double> Dirac_Ky;
-        //std::vector<int> Dirac_type;
+        if(params.model==models::hommelhoff){
+            double e2p=params.e2p[0];
+            double gamma=params.gamma[0];
+            double s=params.s[0];
+            gm=new GrapheneModel(params.a,e2p,gamma,s,params.Td,Efield_x,Efield_y);
+        }
+        else if(params.model==models::nlayer){
+            gm=new NGraphene(tb,params.nlayers,
+                        kxygrid,
+                        params.e2p,params.gamma,params.s,
+                        Efield_x,Efield_y);
+        }
 
-        //gm.get_Dirac_points(Dirac_Kx,Dirac_Ky,Dirac_type);
-        //size_t nK=Dirac_Kx.size();
+        size_t Nstates=gm->nstates();
 
         //prepare output streams
         std::ofstream tfile_out;
@@ -93,150 +104,200 @@ int main(int argc, char** argv){
         tfile_out<<std::setprecision(8);
 
         tfile_out<<"#";
-        tfile_out<<std::setw(19)<<"Time";
-        tfile_out<<std::setw(20)<<"Ax";
-        tfile_out<<std::setw(20)<<"Ay";
-        tfile_out<<std::setw(20)<<"Ex";
-        tfile_out<<std::setw(20)<<"Ey";
-        tfile_out<<std::setw(20)<<"dens_vv";
-        tfile_out<<std::setw(20)<<"dens_cc";
-        tfile_out<<std::setw(20)<<"Re{dens_cv}";
-        tfile_out<<std::setw(20)<<"Im{dens_cv}";
-        tfile_out<<std::setw(20)<<"Jx_intra";
-        tfile_out<<std::setw(20)<<"Jy_intra";
-        tfile_out<<std::setw(20)<<"Jx_inter";
-        tfile_out<<std::setw(20)<<"Jy_inter";
+        tfile_out<<std::setw(19)<<"Time(1)";
+        tfile_out<<std::setw(20)<<"Ax(2)";
+        tfile_out<<std::setw(20)<<"Ay(3)";
+        tfile_out<<std::setw(20)<<"Ex(4)";
+        tfile_out<<std::setw(20)<<"Ey(5)";
+
+        tfile_out<<std::setw(20)<<"Jx_intra(6)";
+        tfile_out<<std::setw(20)<<"Jy_intra(7)";
+        tfile_out<<std::setw(20)<<"Jx_inter(8)";
+        tfile_out<<std::setw(20)<<"Jy_inter(9)";
+
+        size_t col=10;
+        for(size_t ist=0; ist<Nstates; ist++){
+            std::string pop_str="dens["+std::to_string(ist+1)+"]("+std::to_string(col)+")";
+            tfile_out<<std::setw(20)<<pop_str;
+            col++;
+        }
+
+        for(size_t ist=0; ist<Nstates; ist++){
+            for(size_t jst=ist+1; jst<Nstates; jst++){
+                std::string coh_re_str="coh_re["+std::to_string(ist+1)+","+std::to_string(jst+1)+"]("+std::to_string(col)+")";
+                col++;
+                std::string coh_im_str="coh_im["+std::to_string(ist+1)+","+std::to_string(jst+1)+"]("+std::to_string(col)+")";
+                col++;
+
+                tfile_out<<std::setw(20)<<coh_re_str;
+                tfile_out<<std::setw(20)<<coh_im_str;
+            }
+        }
+
         tfile_out<<std::endl;
 
+        std::vector<matrix_t> dens_data(Nstates);
+        std::vector<matrix_t> coh_re_data(Nstates*(Nstates-1)/2);
+        std::vector<matrix_t> coh_im_data(Nstates*(Nstates-1)/2);
+
+        std::vector<double> pops(Nstates);
+        std::vector<complex_t> cohs(Nstates*(Nstates-1)/2);
+
         for(size_t it=0; it<params.Nt; it++){
+            double time=tgrid[it];
+
             //read density from file
             std::string dens_t_fname=params.densfile_fname;
             replace(dens_t_fname,"%it",boost::str(boost::format("%06d") % (it+1)));
 
             std::cout<<dens_t_fname<<std::endl;
 
-            matrix_t dens_vv=read_2D_from_file<matrix_t>(dens_t_fname,0,params.Nkx,params.Nky);
-            matrix_t dens_cc=read_2D_from_file<matrix_t>(dens_t_fname,1,params.Nkx,params.Nky);
-            matrix_t dens_cv_re=read_2D_from_file<matrix_t>(dens_t_fname,2,params.Nkx,params.Nky);
-            matrix_t dens_cv_im=read_2D_from_file<matrix_t>(dens_t_fname,3,params.Nkx,params.Nky);
+            size_t col=0;
+            for(size_t ist=0; ist<Nstates; ist++){
+                dens_data[ist]=read_2D_from_file<matrix_t>(dens_t_fname,col,params.Nkx,params.Nky);
+                col++;
+            }
 
-            double time=tgrid[it];
+            size_t indx=0;
+            for(size_t ist=0; ist<Nstates; ist++){
+                for(size_t jst=ist+1; jst<Nstates; jst++){
+                    coh_re_data[indx]=read_2D_from_file<matrix_t>(dens_t_fname,col,params.Nkx,params.Nky);
+                    col++;
+                    coh_im_data[indx]=read_2D_from_file<matrix_t>(dens_t_fname,col,params.Nkx,params.Nky);
+                    col++;
+                    indx++;
+                }
+            }
 
-            //integrate over kgrids
-            double pop0=0.;
-            double pop1=0.;
-            complex_t coh=0.;
+            //integrate band populations
+            for(size_t ist=0; ist<Nstates; ist++){
+                pops[ist]=0.;
+                integrator->trapz(
+                    [ist,dens_data](const size_t& ikx, const size_t& iky){
+                        return dens_data[ist](ikx,iky);
+                    },
+                    pops[ist]
+                );
+            }
+
+            //integrate coherences
+            indx=0;
+            for(size_t ist=0; ist<Nstates; ist++){
+                for(size_t jst=ist+1; jst<Nstates; jst++){
+                    double coh_re=0.;
+                    double coh_im=0.;
+
+                    integrator->trapz(
+                        [indx,coh_re_data](const size_t& ikx, const size_t& iky){
+                            return coh_re_data[indx](ikx,iky);
+                        },
+                        coh_re
+                    );
+
+                    integrator->trapz(
+                        [indx,coh_im_data](const size_t& ikx, const size_t& iky){
+                            return coh_im_data[indx](ikx,iky);
+                        },
+                        coh_im
+                    );
+
+                    cohs[indx]=coh_re+I*coh_im;
+
+                    indx++;
+                }
+            }
+
+            //integrate intraband current
             double Jra[2]={0.,0.};
+            for(int dir=0; dir<2; dir++){
+                integrator->trapz(
+                    [dens_data,
+                    kxygrid,
+                    time,
+                    Afield_x,Afield_y,
+                    gm,
+                    dir,Nstates](const size_t& ikx, const size_t& iky){
+                        double kx0=(*kxygrid)(ikx,iky)[0];
+                        double ky0=(*kxygrid)(ikx,iky)[1];
+
+                        double kxt=kx0+(*Afield_x)(time);
+                        double kyt=ky0+(*Afield_y)(time);
+
+                        double res=0.;
+                        for(size_t ist=0; ist<Nstates; ist++){
+                            res+=gm->get_energy_grad(kxt,kyt,ist,dir)*dens_data[ist](ikx,iky);
+                        }
+
+                        return res;
+                    },
+                    Jra[dir]
+                );
+            }
+
+            //integrate interband current
             double Jer[2]={0.,0.};
+            for(int dir=0; dir<2; dir++){
+                integrator->trapz(
+                    [coh_re_data,coh_im_data,
+                    kxygrid,
+                    time,
+                    Afield_x,Afield_y,
+                    gm,
+                    dir,Nstates](const size_t& ikx, const size_t& iky){
+                        double kx0=(*kxygrid)(ikx,iky)[0];
+                        double ky0=(*kxygrid)(ikx,iky)[1];
 
-            //for(size_t iK=0; iK<nK; iK++){//loop over Dirac points
-            //    double Kx=Dirac_Kx[iK];
-            //    double Ky=Dirac_Ky[iK];
-            //    double Ktype=Dirac_type[iK];
+                        double kxt=kx0+(*Afield_x)(time);
+                        double kyt=ky0+(*Afield_y)(time);
 
-            //    double kxmin=Kx-params.dkx;
-            //    double kxmax=Kx+params.dkx;
-            //    double kymin=Ky-params.dky;
-            //    double kymax=Ky+params.dky;
+                        double res=0.;
 
-            //    auto kx_grid=create_grid(kxmin,kxmax,params.Nkx,params.kgrid_type);
-            //    auto ky_grid=create_grid(kymin,kymax,params.Nky,params.kgrid_type);
+                        size_t indx=0;
+                        for(size_t ist=0; ist<Nstates; ist++){
+                            for(size_t jst=ist+1; jst<Nstates; jst++){
+                                double re=coh_re_data[indx](ikx,iky);
+                                double im=coh_im_data[indx](ikx,iky);
+                                complex_t dens=re+I*im;
 
-                //integrate band populations
-                pop0+=kxygrid->integrate(
-                    [dens_vv](const size_t& ix, const size_t& iy){
-                        return dens_vv(ix,iy);
-                    }
-                );
+                                complex_t P=I*(gm->get_energy(kxt,kyt,ist)-gm->get_energy(kxt,kyt,jst))
+                                    *gm->get_dipole(kxt,kyt,ist,jst,dir);
 
-                pop1+=kxygrid->integrate(
-                    [dens_cc](const size_t& ix, const size_t& iy){
-                        return dens_cc(ix,iy);
-                    }
-                );                
+                                res+=2.*std::real(P*dens);
 
-                //integrate coherences
-                double coh_re=kxygrid->integrate(
-                    [dens_cv_re](const size_t& ix, const size_t& iy){
-                        return dens_cv_re(ix,iy);
-                    }
-                );
-
-                double coh_im=kxygrid->integrate(
-                    [dens_cv_im](const size_t& ix, const size_t& iy){
-                        return dens_cv_im(ix,iy);
-                    }
-                );
-
-                coh+=coh_re+I*coh_im;
-
-                for(int dir=0; dir<2; dir++){
-                    Jra[dir]+=kxygrid->integrate(
-                        [dens_vv,dens_cc,
-                        kxygrid,
-                        time,
-                        Afield_x,Afield_y,
-                        gm,
-                        dir](const size_t& ikx, const size_t& iky){
-                            double kx0=(*kxygrid)(ikx,iky)[0];
-                            double ky0=(*kxygrid)(ikx,iky)[1];
-
-                            double kxt=kx0+(*Afield_x)(time);
-                            double kyt=ky0+(*Afield_y)(time);
-
-                            if(dir==0){
-                                return gm.px_vv(kxt,kyt)*dens_vv(ikx,iky)
-                                      +gm.px_cc(kxt,kyt)*dens_cc(ikx,iky);
-                            }
-                            else if(dir==1){
-                                return gm.py_vv(kxt,kyt)*dens_vv(ikx,iky)
-                                      +gm.py_cc(kxt,kyt)*dens_cc(ikx,iky);
+                                indx++;
                             }
                         }
-                    );
-                }
 
-                for(int dir=0; dir<2; dir++){
-                    Jer[dir]+=kxygrid->integrate(
-                        [dens_cv_re,dens_cv_im,
-                        kxygrid,
-                        time,
-                        Afield_x,Afield_y,
-                        gm,
-                        dir](const size_t& ikx, const size_t& iky){
-                            double kx0=(*kxygrid)(ikx,iky)[0];
-                            double ky0=(*kxygrid)(ikx,iky)[1];
-
-                            double kxt=kx0+(*Afield_x)(time);
-                            double kyt=ky0+(*Afield_y)(time);
-
-                            complex_t dens_cv=dens_cv_re(ikx,iky)+I*dens_cv_im(ikx,iky);
-
-                            if(dir==0){
-                                return 2.*std::real(gm.px_cv(kxt,kyt)*dens_cv);
-                            }
-                            else if(dir==1){
-                                return 2.*std::real(gm.py_cv(kxt,kyt)*dens_cv);
-                            }
-                        }
-                    );
-                }
-            //}//loop over Dirac points
-            //std::cout<<std::endl;
+                        return res;
+                    },
+                    Jer[dir]
+                );
+            }
 
             tfile_out<<std::setw(20)<<time*au2fs;
             tfile_out<<std::setw(20)<<(*Afield_x)(time);
             tfile_out<<std::setw(20)<<(*Afield_y)(time);
             tfile_out<<std::setw(20)<<(*Efield_x)(time);
             tfile_out<<std::setw(20)<<(*Efield_y)(time);
-            tfile_out<<std::setw(20)<<pop0/SBZ;
-            tfile_out<<std::setw(20)<<pop1/SBZ;
-            tfile_out<<std::setw(20)<<std::real(coh)/SBZ;
-            tfile_out<<std::setw(20)<<std::imag(coh)/SBZ;
+
             tfile_out<<std::setw(20)<<Jra[0];
             tfile_out<<std::setw(20)<<Jra[1];
             tfile_out<<std::setw(20)<<Jer[0];
             tfile_out<<std::setw(20)<<Jer[1];
+
+            for(size_t ist=0; ist<Nstates; ist++){
+                tfile_out<<std::setw(20)<<pops[ist]/SBZ;
+            }
+
+            indx=0;
+            for(size_t ist=0; ist<Nstates; ist++){
+                for(size_t jst=ist+1; jst<Nstates; jst++){
+                    tfile_out<<std::setw(20)<<std::real(cohs[indx])/SBZ;
+                    tfile_out<<std::setw(20)<<std::imag(cohs[indx])/SBZ;
+                    indx++;
+                }
+            }
+
             tfile_out<<std::endl;
         }
         tfile_out.close();

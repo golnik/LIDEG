@@ -30,6 +30,10 @@ link_directories("/home/ngolubev/Packages/libs/boost/1.80.0/lib")
 #)
 #INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIR})
 
+#Eigen
+set(Eigen_PATH "/home/ngolubev/Packages/libs/Eigen/eigen-3.4.0")
+include_directories(${Eigen_PATH})
+
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 #mINI library
@@ -37,6 +41,10 @@ include_directories("../libs/mINI/src/")
 
 #uBLAS odeint
 include_directories("../libs/odeint/")
+
+#SPLINTER
+include_directories("~/Packages/libs/splinter/include/")
+link_directories("~/Packages/libs/splinter/build/")
 
 #add_library(
 #    ${PROJECT} SHARED
@@ -58,35 +66,21 @@ endif()
 #set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
-add_executable(
-    main.exe
-    "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp"  
-)
-
-add_executable(
-    analysis.exe
-    "${CMAKE_CURRENT_SOURCE_DIR}/analysis.cpp"  
-)
-
-add_executable(
-    rspace.exe
-    "${CMAKE_CURRENT_SOURCE_DIR}/rspace.cpp"  
-)
-
-#add_executable(
-#    debug.exe
-#    "${CMAKE_CURRENT_SOURCE_DIR}/utils/gauss_legendre.c"    
-#    "${CMAKE_CURRENT_SOURCE_DIR}/debug.cpp"
-#)
-
-target_link_libraries(main.exe PRIVATE "stdc++fs")
-target_link_libraries(analysis.exe PRIVATE "stdc++fs")
-target_link_libraries(rspace.exe PRIVATE "stdc++fs")
-#target_link_libraries(debug.exe PRIVATE "stdc++fs")
+#set(CMAKE_EXE_LINKER_FLAGS "-static")
 
 find_package(OpenMP)
-if(OpenMP_CXX_FOUND)
-    target_link_libraries(main.exe PUBLIC OpenMP::OpenMP_CXX)
-    target_link_libraries(analysis.exe PUBLIC OpenMP::OpenMP_CXX)
-    target_link_libraries(rspace.exe PUBLIC OpenMP::OpenMP_CXX)
-endif()
+
+set(PROGS "main;analysis;data_writer;rspace")
+
+foreach(PROG ${PROGS})
+    set(BIN ${PROG}.exe)
+
+    add_executable(${BIN} "${CMAKE_CURRENT_SOURCE_DIR}/${PROG}.cpp")
+
+    target_link_libraries(${BIN} PUBLIC "stdc++fs")
+    target_link_libraries(${BIN} PUBLIC splinter-static-3-0)
+
+    if(OpenMP_CXX_FOUND)
+        target_link_libraries(${BIN} PUBLIC OpenMP::OpenMP_CXX)
+    endif()
+ENDFOREACH()

@@ -2,13 +2,19 @@
 #define PARSER_HPP
 
 #include "mini/ini.h"
-#include "utils/utils.hpp"
+//#include "utils/utils.hpp"
 
 #include <string>
 #include <fstream>
+#include <regex>
 
 #include <filesystem>
 namespace fs=std::filesystem;
+
+enum class kgrid_types: unsigned int {ucell=0, kpoint};
+enum class rgrid_types: unsigned int {ucell=0, rectan};
+enum class models: unsigned int {hommelhoff=0, nlayer};
+enum class stacking: unsigned int {A=0, B, C};
 
 struct Parameters{
     double tmin;
@@ -25,7 +31,7 @@ struct Parameters{
     double dky;
     size_t Nky;
 
-    int kgrid_type;
+    kgrid_types kgrid_type;
 
     size_t Nclx;
     size_t Ncly;
@@ -43,15 +49,20 @@ struct Parameters{
     double zmax;
     size_t Nz;        
 
-    int rgrid_type;
+    rgrid_types rgrid_type;
 
     double E0;
     std::string field_fname;
 
+    models model;
+    size_t nlayers;
+    std::vector<stacking> layers;
+
+    double d;
     double a;
-    double e2p;
-    double gamma;
-    double s;
+    std::vector<double> e2p;
+    std::vector<double> gamma;
+    std::vector<double> s;
     double Z;
     double Td;
 
@@ -62,23 +73,90 @@ struct Parameters{
     std::string densfile_fname;
     std::string rhofile_fname;
     std::string afile_fname;
+    std::string pkfile_fname;
+    std::string prfile_fname;
 
     void print(std::ostream& out) const{
-        out<<tmin<<" "<<tmax<<" "<<Nt<<std::endl;
-        out<<err_abs<<" "<<err_rel<<std::endl;
+        out<<"********************************************\n";
+        out<<"********* PROPAGATION PARAMETERS: **********\n";
+        out<<"********************************************\n";
+        out<<std::fixed;
+        out<<std::setprecision(5);
+        out<<"\ttmin: "<<tmin*au2fs<<", fs\n";
+        out<<"\ttmax: "<<tmax*au2fs<<", fs\n";
+        out<<"\tNt: "<<Nt<<std::endl;
+        out<<std::scientific;
+        out<<"\tddt: "<<ddt*au2fs<<", fs\n";
+        out<<"\tabsolute error: "<<err_abs<<std::endl;
+        out<<"\trelative error: "<<err_rel<<std::endl;
 
-        //out<<"kx grid:"<<std::endl;
-        //out<<kx_min<<" "<<kx_max<<" "<<Nkx<<std::endl;
-        //out<<"ky grid:"<<std::endl;
-        //out<<ky_min<<" "<<ky_max<<" "<<Nky<<std::endl;
+        out<<"********************************************\n";
+        out<<"************ FIELD PARAMETERS: *************\n";
+        out<<"********************************************\n";
+        out<<"\tfield will be loaded from: "<<field_fname<<std::endl;
+        out<<std::scientific;
+        out<<"\tfield intensity: "<<E0*au2Vnm<<", V/nm\n";
 
-        out<<field_fname<<std::endl;
+        out<<"********************************************\n";
+        out<<"********* PARAMETERS OF THE MODEL: *********\n";
+        out<<"********************************************\n";
+        out<<std::fixed;
+        out<<std::setprecision(5);
 
-        out<<"Parameters of the model:"<<std::endl;
-        out<<"a: "<<a<<std::endl;
-        out<<"e2p: "<<e2p<<std::endl;
-        out<<"gamma: "<<gamma<<std::endl;
-        out<<"s: "<<s<<std::endl;
+        out<<"\tmodel name: ";
+        switch(model){
+            case models::hommelhoff:
+                out<<"Hommelhoff model\n";
+                break;
+            case models::nlayer:
+                out<<"nlayer numerical model\n";
+                break;
+        }
+
+        out<<"\tlattice constant: "<<a*au2A<<", A"<<std::endl;
+        out<<"\tnumber of layers: "<<nlayers<<std::endl;
+
+        if(nlayers!=1){
+            out<<"\tinterlayer distance: "<<d*au2A<<", A"<<std::endl;
+            out<<"\tlayers stacking: ";
+            for(auto it: layers){
+                switch(it){
+                    case stacking::A:
+                        out<<"A,";
+                        break;
+                    case stacking::B:
+                        out<<"B,";
+                        break;
+                    case stacking::C:
+                        out<<"C,";
+                        break;
+                }
+            }
+            out<<"\n";
+        }
+
+        out<<"\torbital energy: ";
+        for(auto it: e2p){
+            out<<it*au2eV<<", ";
+        }
+        out<<"eV\n";
+
+        out<<"\thopping energy: ";
+        for(auto it: gamma){
+            out<<it*au2eV<<", ";
+        }
+        out<<"eV\n";
+
+        out<<"\toverlap integral: ";
+        for(auto it: s){
+            out<<it<<", ";
+        }
+        out<<"\n";
+
+        out<<"\torbital charge: "<<Z<<std::endl;
+        out<<"\tcoherence time: "<<Td*au2fs<<", fs\n";
+
+        return;
     }
 };
 
@@ -128,14 +206,14 @@ public:
 
         std::string kgrid_type_str=ini.get("kgrid").get("type");
         trim(kgrid_type_str);
-        if(kgrid_type_str=="regular"){
-            _params.kgrid_type=regular;
+        if(kgrid_type_str=="kpoint"){
+            _params.kgrid_type=kgrid_types::kpoint;
         }
-        else if(kgrid_type_str=="quad"){
-            _params.kgrid_type=quad;
+        else if(kgrid_type_str=="ucell"){
+            _params.kgrid_type=kgrid_types::ucell;
         }
         else{
-            throw std::string("Wrong kgrid_type!");
+            throw std::string("The requested kgrid_type does not exist!");
         }
 
         //parse rgrid section
@@ -160,14 +238,14 @@ public:
 
         std::string rgrid_type_str=ini.get("rgrid").get("type");
         trim(rgrid_type_str);
-        if(rgrid_type_str=="regular"){
-            _params.rgrid_type=regular;
+        if(rgrid_type_str=="rectan"){
+            _params.rgrid_type=rgrid_types::rectan;
         }
         else if(rgrid_type_str=="ucell"){
-            _params.rgrid_type=ucell;
+            _params.rgrid_type=rgrid_types::ucell;
         }
         else{
-            throw std::string("Wrong rgrid_type!");
+            throw std::string("The requested rgrid_type does not exist!");
         }
 
         //parse field file
@@ -175,22 +253,84 @@ public:
         _params.field_fname=ini.get("field").get("fname");
 
         //parse model parameters
-        std::string a_str=ini.get("model").get("a");
+        std::string model_str=ini.get("system").get("model");
+        trim(model_str);
+        if(model_str=="hommelhoff"){
+            _params.model=models::hommelhoff;
+        }
+        else if(model_str=="nlayer"){
+            _params.model=models::nlayer;
+        }
+        else{
+            throw std::string("The requested model does not exist!");
+        }
+
+        std::string layers_str=ini.get("system").get("layers");
+        if(!layers_str.empty()){
+            std::regex pattern("\\w+");
+            for(auto it=std::sregex_iterator(layers_str.begin(),layers_str.end(),pattern);
+                     it!=std::sregex_iterator(); it++){
+                std::smatch m=*it;
+                std::string lstr=m.str();
+                if(lstr=="A"){
+                    _params.layers.push_back(stacking::A);
+                }
+                else if(lstr=="B"){
+                    _params.layers.push_back(stacking::B);
+                }
+                else if(lstr=="C"){
+                    _params.layers.push_back(stacking::C);
+                }
+                else{
+                    throw std::string("The requested layers stacking does not exist!");
+                }
+            }    
+        }
+        else{
+            _params.layers.push_back(stacking::A);
+        }
+        _params.nlayers=_params.layers.size();
+
+        std::string d_str=ini.get("system").get("d");
+        _params.d=std::stod(d_str)/au2A;
+
+        std::string a_str=ini.get("system").get("a");
         _params.a=std::stod(a_str)/au2A;
 
-        std::string e2p_str=ini.get("model").get("e2p");
-        _params.e2p=std::stod(e2p_str)/au2eV;
+        std::string e2p_str=ini.get("system").get("e2p");
+        if(!e2p_str.empty()){
+            _params.e2p=parse_array<double>(e2p_str);
+            for(size_t i=0; i<_params.e2p.size(); i++){
+                _params.e2p[i]/=au2eV;
+            }
+        }
+        else{
+            throw std::string("e2p parameter is not specified!");
+        }
 
-        std::string gamma_str=ini.get("model").get("gamma");
-        _params.gamma=std::stod(gamma_str)/au2eV;
+        std::string gamma_str=ini.get("system").get("gamma");
+        if(!gamma_str.empty()){
+            _params.gamma=parse_array<double>(gamma_str);
+            for(size_t i=0; i<_params.gamma.size(); i++){
+                _params.gamma[i]/=au2eV;
+            }
+        }
+        else{
+            throw std::string("gamma parameter is not specified!");
+        }
 
-        std::string s_str=ini.get("model").get("s");
-        _params.s=std::stod(s_str);
+        std::string s_str=ini.get("system").get("s");
+        if(!s_str.empty()){
+            _params.s=parse_array<double>(s_str);
+        }
+        else{
+            throw std::string("s parameter is not specified!");
+        }
 
-        std::string Z_str=ini.get("model").get("Z");
+        std::string Z_str=ini.get("system").get("Z");
         _params.Z=std::stod(Z_str);
 
-        std::string Td_str=ini.get("model").get("Td");
+        std::string Td_str=ini.get("system").get("Td");
         _params.Td=std::stod(Td_str)/au2fs;
 
         //parse output
@@ -213,8 +353,34 @@ public:
 
         fs::path afile_path(_params.outdir);
         _params.afile_fname=(afile_path/=ini.get("output").get("afile")).c_str();        
+
+        fs::path pkfile_path(_params.outdir);
+        _params.pkfile_fname=(pkfile_path/=ini.get("output").get("pkfile")).c_str();
+
+        fs::path prfile_path(_params.outdir);
+        _params.prfile_fname=(prfile_path/=ini.get("output").get("prfile")).c_str();        
     }
 private:
+    template<typename T>
+    std::vector<T> parse_array(const std::string& str) const{
+        std::vector<T> res;
+
+        std::regex regex_number("[+-]?(\\d+([.]\\d*)?([eE][+-]?\\d+)?|[.]\\d+([eE][+-]?\\d+)?)");
+        for(auto it=std::sregex_iterator(str.begin(),str.end(),regex_number);
+                 it!=std::sregex_iterator(); it++){
+            std::smatch m=*it;
+            std::string valstr=m.str();
+
+            std::istringstream ss(valstr);
+            T val;
+            ss>>val;
+
+            res.push_back(val);
+        }
+
+        return res;
+    }
+
     Parameters& _params;
 };
 

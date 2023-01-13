@@ -13,9 +13,13 @@ using namespace boost::numeric::ublas;
 using namespace boost::math::differentiation;
 
 //#include "utils.hpp"
+#include "utils/grid.hpp"
 #include "external_field.hpp"
 
-class GrapheneModel{
+#include "graphenemodel.hpp"
+
+class GrapheneModel:
+public Graphene{
     friend class WFs;
     friend class WFs_grid;
     typedef matrix<complex_t> state_type;
@@ -29,44 +33,7 @@ public:
     _Td(Td),
     _Ex{Ex},_Ey{Ey}{}
 
-    ~GrapheneModel(){}
-
-    void get_Dirac_points(std::vector<double>& Dirac_Kx, 
-                          std::vector<double>& Dirac_Ky,
-                          std::vector<int>&    Dirac_type) const{
-        double Kx=2.*M_PI/(sqrt(3.)*_a);
-        double Ky=2.*M_PI/(3.*_a);
-
-        //add K point
-        Dirac_Kx.push_back(Kx);
-        Dirac_Ky.push_back(Ky);
-        Dirac_type.push_back(0);
-
-        //add K' point
-        Dirac_Kx.push_back(Kx);
-        Dirac_Ky.push_back(-Ky);
-        Dirac_type.push_back(1);
-
-        //add K point
-        /*Dirac_Kx.push_back(-Kx);
-        Dirac_Ky.push_back(Ky);
-        Dirac_type.push_back(0);
-
-        //add K' point
-        Dirac_Kx.push_back(-Kx);
-        Dirac_Ky.push_back(-Ky);
-        Dirac_type.push_back(1);*/
-
-        //add K point
-        /*Dirac_Kx.push_back(4.*M_PI/(3.*_a));
-        Dirac_Ky.push_back(0.);
-        Dirac_type.push_back(0);
-
-        //add' K point
-        Dirac_Kx.push_back(-4.*M_PI/(3.*_a));
-        Dirac_Ky.push_back(0.);
-        Dirac_type.push_back(0);*/
-    }
+    virtual ~GrapheneModel(){}
 
     /*complex_t f(const double& kx, const double& ky) const{
         return exp(I*kx*_a/sqrt(3.))+2.*exp(-I*0.5*kx*_a/sqrt(3.))*cos(0.5*ky*_a);
@@ -150,6 +117,75 @@ public:
         return autodiff.derivative(1);
     }
 
+    double get_energy(const double& kx, const double& ky, const size_t& ist) const override{
+        double res=0.;
+        if(ist==0){
+            res=ep(kx,ky);
+        }
+        else if(ist==1){
+            res=em(kx,ky);
+        }
+        else{
+            throw std::string("Only two energy levels are available in this model!");
+        }
+        return res;
+    }
+
+    double get_dipole(const double& kx, const double& ky, const size_t& ist, const size_t& jst, const size_t& dir) const override{
+        double res=0.;
+        if(ist!=jst){
+            if(dir==0){
+                res=dx(kx,ky);
+            }
+            else if(dir==1){
+                res=dy(kx,ky);
+            }
+        }
+        return res;
+    }
+
+    double get_energy_grad(const double& kx, const double& ky, const size_t& ist, const size_t& dir) const override{
+        double res=0.;
+        if(dir==0){
+            if(ist==0){
+                res=px_vv(kx,ky);
+            }
+            else if(ist==1){
+                res=px_cc(kx,ky);
+            }
+        }
+        else if(dir==1){
+            if(ist==0){
+                res=py_vv(kx,ky);
+            }
+            else if(ist==1){
+                res=py_cc(kx,ky);
+            }
+        }
+        return res;
+    }
+
+    vector_t get_state(const double& kx, const double& ky, const size_t& ist) const override{
+        vector_t res(2);
+        for(size_t ist=0; ist<this->nstates(); ist++){
+            res(ist)=0.;
+        }
+        if(ist==0){
+            res(0)=1.;
+            res(1)=exp(-I*this->phi(kx,ky));
+            res*=1./(sqrt(2.*(1.+this->_s*abs(this->f(kx,ky)))));
+        }
+        else if(ist==1){
+            res(0)=1.;
+            res(1)=-exp(-I*this->phi(kx,ky));
+            res*=1./(sqrt(2.*(1.-this->_s*abs(this->f(kx,ky)))));
+        }
+        else{
+            throw std::string("Only two energy levels are available in this model!");
+        }
+        return res;
+    }
+
     complex_t px_cv(const double& kx, const double& ky) const{
         return I*(em(kx,ky)-ep(kx,ky))*dx(kx,ky);
     }
@@ -166,8 +202,7 @@ public:
     }
 
     void propagate(const state_type& rho, state_type& drhodt, const double t,
-                    const double& kx_t, const double& ky_t) const{
-                        
+                    const double& kx_t, const double& ky_t) const override{
         double emn[2]={ep(kx_t,ky_t),em(kx_t,ky_t)};
 
         matrix<complex_t> d_x(2,2);
@@ -209,6 +244,10 @@ public:
                 if(m!=n) drhodt(n,m)+=-(1./_Td)*rho(n,m);
             }
         }
+    }
+
+    size_t nstates() const override{
+        return 2;
     }
 private:
     double _a;

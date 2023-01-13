@@ -6,6 +6,7 @@
 #include <fstream>
 #include <iostream>
 #include <complex>
+#include <cassert>
 
 #include "integrator.hpp"
 
@@ -23,8 +24,6 @@ const complex_t I=complex_t(0.,1.);
 #include <algorithm> 
 #include <cctype>
 #include <locale>
-
-enum kgrid_types {regular=0, quad, ucell};
 
 // trim from start (in place)
 static inline void ltrim(std::string &s) {
@@ -78,7 +77,7 @@ bool replace(std::string& str, const std::string& from, const std::string& to) {
 std::vector<double> create_grid(const double& min, const double& max, const size_t& N, const int& type=0){
     std::vector<double> grid(N);
 
-    if(type==regular){
+    if(type==0){
         double d=(max-min)/(N-1);
         double var=min;
         for(size_t i=0; i<N; i++){
@@ -86,7 +85,7 @@ std::vector<double> create_grid(const double& min, const double& max, const size
             var+=d;
         }
     }
-    else if(type==quad){
+    else if(type==1){
         grid=create_gauss_legendre_grid(min,max,N);
     }
 
@@ -122,5 +121,41 @@ void printProgress(double percentage) {
     printf("\r%3d%% [%.*s%*s]\n", val, lpad, PBSTR, rpad, "");
     fflush(stdout);
 }
+
+class MultiIndex{
+public:
+    explicit MultiIndex(const std::vector<size_t>& dims):
+    _dims(dims){
+        assert(!dims.empty());
+    }
+
+    size_t operator()(const std::vector<size_t>& indexes) const{
+        return this->indx(indexes);
+    }
+
+    size_t indx(const std::vector<size_t>& indexes) const{
+        assert(indexes.size()==_dims.size());
+
+        size_t index=0;
+        size_t mul=1;
+
+        for(size_t i=0; i!=_dims.size(); ++i){
+            assert(indexes[i]<_dims[i]);
+            index+=indexes[i]*mul;
+            mul*=_dims[i];
+        }
+        return index;
+    }
+
+    size_t size() const{
+        size_t totalSize=1;
+        for(auto i: _dims){
+            totalSize*=i;
+        }
+        return totalSize;
+    }
+private:
+    std::vector<size_t> _dims;
+};
 
 #endif
