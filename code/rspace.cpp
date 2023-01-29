@@ -99,7 +99,7 @@ int main(int argc, char** argv){
         else if(params.model==models::nlayer){
             gm=new NGraphene(tb,params.nlayers,
                         kxygrid,
-                        params.e2p,params.gamma,params.s,
+                        params.e2p,params.gamma,params.s,params.Td,
                         E0,E0);
         }
 

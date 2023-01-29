@@ -115,9 +115,11 @@ public:
               const std::vector<double>& eps,
               const std::vector<double>& g,
               const std::vector<double>& s,
+              const double& Td,
               ExternalField* Ex, ExternalField* Ey):
     _tbm{tbm},_N(N),
     _eps(eps),_g(g),_s(s),
+    _Td(Td),
     _Ex{Ex},_Ey{Ey}{
         size_t Nst=2*N;
 
@@ -311,6 +313,8 @@ public:
                     //-(*_Ex)(t)*comm_x(n,m)//-(*_Ey)(t)*comm_y(m,n)
 
                 );
+
+                if(m!=n) drhodt(n,m)+=-(1./_Td)*rho(n,m);
             }
         }
         return;
@@ -489,6 +493,7 @@ private:
     std::vector<double> _eps;
     std::vector<double> _g;
     std::vector<double> _s;
+    double _Td;
 
     ExternalField* _Ex;
     ExternalField* _Ey;

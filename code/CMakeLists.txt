@@ -2,8 +2,11 @@ cmake_minimum_required(VERSION 3.0)
 
 set(PROJECT graphene)
 
-set(CMAKE_C_COMPILER "gcc")
-set(CMAKE_CXX_COMPILER "g++")
+#set(CMAKE_C_COMPILER "gcc")
+#set(CMAKE_CXX_COMPILER "g++")
+
+set(CMAKE_C_COMPILER "icc")
+set(CMAKE_CXX_COMPILER "icpc")
 
 project(${PROJECT} C CXX)
 
@@ -12,17 +15,20 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-find_package(Python 3.7 COMPONENTS Interpreter Development REQUIRED)
-if(Python_FOUND)
-    message(STATUS "Python Found: ${Python_EXECUTABLE}")
-    message(STATUS "Python Found: ${Python_INCLUDE_DIRS}")
-    message(STATUS "Python Found: ${Python_LIBRARIES}")
-    message(STATUS "Python Found: ${Python_LIBRARY_DIRS}")
-    include_directories(${Python_INCLUDE_DIRS})
-endif()
+#find_package(Python 3.7 COMPONENTS Interpreter Development REQUIRED)
+#if(Python_FOUND)
+#    message(STATUS "Python Found: ${Python_EXECUTABLE}")
+#    message(STATUS "Python Found: ${Python_INCLUDE_DIRS}")
+#    message(STATUS "Python Found: ${Python_LIBRARIES}")
+#    message(STATUS "Python Found: ${Python_LIBRARY_DIRS}")
+#    include_directories(${Python_INCLUDE_DIRS})
+#endif()
 
-include_directories("/home/ngolubev/Packages/libs/boost/1.80.0/include/")
-link_directories("/home/ngolubev/Packages/libs/boost/1.80.0/lib")
+set(Boost_INCLUDE_DIR "~/Packages/libs/boost/1.81.0/gcc8.3.0/include/")
+set(Boost_LIB_DIR "~/Packages/libs/boost/1.81.0/gcc8.3.0/lib/")
+
+include_directories(${Boost_INCLUDE_DIR})
+link_directories(${Boost_LIB_DIR})
 
 #FIND_PACKAGE(
 #    Boost 1.79 REQUIRED
@@ -31,7 +37,7 @@ link_directories("/home/ngolubev/Packages/libs/boost/1.80.0/lib")
 #INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIR})
 
 #Eigen
-set(Eigen_PATH "/home/ngolubev/Packages/libs/Eigen/eigen-3.4.0")
+set(Eigen_PATH "~/Packages/libs/Eigen/eigen-3.4.0")
 include_directories(${Eigen_PATH})
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
@@ -80,7 +86,5 @@ foreach(PROG ${PROGS})
     target_link_libraries(${BIN} PUBLIC "stdc++fs")
     target_link_libraries(${BIN} PUBLIC splinter-static-3-0)
 
-    if(OpenMP_CXX_FOUND)
-        target_link_libraries(${BIN} PUBLIC OpenMP::OpenMP_CXX)
-    endif()
+    target_link_libraries(${BIN} PUBLIC OpenMP::OpenMP_CXX)
 ENDFOREACH()
