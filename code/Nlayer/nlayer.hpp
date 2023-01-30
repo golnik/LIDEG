@@ -195,8 +195,21 @@ public:
     double get_dipole(const double& kx, const double& ky, const size_t& ist, const size_t& jst, const size_t& dir) const override{
         size_t Nst=2*_N;
 
-        size_t indx=(*mapping)(ist,jst);
+        /*matrix_t Dx=matrix_t::Zero(Nst,Nst);
+        matrix_t Dy=matrix_t::Zero(Nst,Nst);
+        this->computeDipole(Dx,Dy,kx,ky);
 
+        double res=0.;
+        if(dir==0){
+            res=std::real(Dx(ist,jst));
+        }
+        else if(dir==1){
+            res=std::real(Dy(ist,jst));
+        }
+
+        return res;*/
+
+        size_t indx=(*mapping)(ist,jst);
 
         double res=0.;
         if(ist!=jst){
@@ -255,13 +268,10 @@ public:
                 const double& kx_t, const double& ky_t) const override{
         size_t Nst=2*_N;
 
-        std::vector<double> emn(Nst);
+        std::vector<double> E(Nst);
         for(size_t ist=0; ist<Nst; ist++){
-            emn[ist]=this->spl_evaluate(*e_spl[ist],kx_t,ky_t);
+            E[ist]=this->get_energy(kx_t,ky_t,ist);
         }
-
-        //this->solve(kx_t,ky_t);
-        //auto emn=this->getEnergies();
 
         matrix<complex_t> d_x(Nst,Nst);
         matrix<complex_t> d_y(Nst,Nst);
@@ -273,50 +283,33 @@ public:
             }
         }
 
-        size_t indx=0;
         for(size_t ist=0; ist<Nst; ist++){
             for(size_t jst=ist+1; jst<Nst; jst++){
-                //if(ist==0 && jst==Nst-1){
-                    d_x(ist,jst)=this->spl_evaluate(*d_spl_x[indx],kx_t,ky_t);
-                    d_x(jst,ist)=d_x(ist,jst);
+                double dx=this->get_dipole(kx_t,ky_t,ist,jst,0);
+                double dy=this->get_dipole(kx_t,ky_t,ist,jst,1);
 
-                    d_y(ist,jst)=this->spl_evaluate(*d_spl_y[indx],kx_t,ky_t);
-                    d_y(jst,ist)=d_y(ist,jst);
-                //}
+                d_x(ist,jst)=dx;
+                d_x(jst,ist)=dx;
 
-                indx++;
+                d_y(ist,jst)=dy;
+                d_y(jst,ist)=dy;
             }
         }
 
-        //auto comm_x=prod(d_x,rho)-prod(rho,d_x);
-        //auto comm_y=prod(d_y,rho)-prod(rho,d_y);
+        auto comm_x=prod(d_x,rho)-prod(rho,d_x);
+        auto comm_y=prod(d_y,rho)-prod(rho,d_y);
 
-        for(size_t n=0; n<Nst; n++){
-            for(size_t m=0; m<Nst; m++){
-                complex_t res_x=0.;
-                complex_t res_y=0.;
-                for(size_t mp=0; mp<Nst; mp++){
-                    res_x+=d_x(mp,n)*rho(mp,m)-d_x(m,mp)*rho(n,mp);
-                    res_y+=d_y(mp,n)*rho(mp,m)-d_y(m,mp)*rho(n,mp);
-                }
-
-                //std::cout<<res_x<<" "<<res_y<<std::endl;
-
-                drhodt(n,m)=-I*(
-                    (emn[m]-emn[n])*rho(n,m)
-                    //-( ((*_Ex)(t)*d_x(m,n)+(*_Ey)(t)*d_y(m,n))*rho(m,m)
-                    //  -((*_Ex)(t)*std::conj(d_x(m,n))+(*_Ey)(t)*std::conj(d_y(m,n)))*rho(n,n)
-                    // )
-
-                    -(*_Ex)(t)*res_x-(*_Ey)(t)*res_y
-
-                    //-(*_Ex)(t)*comm_x(n,m)//-(*_Ey)(t)*comm_y(m,n)
-
+        for(size_t m=0; m<Nst; m++){
+            for(size_t n=0; n<Nst; n++){
+                drhodt(m,n)=-I*(
+                    (E[m]-E[n])*rho(m,n)
+                    +(*_Ex)(t)*comm_x(m,n)+(*_Ey)(t)*comm_y(m,n)
                 );
 
-                if(m!=n) drhodt(n,m)+=-(1./_Td)*rho(n,m);
+                if(m!=n) drhodt(m,n)+=-(1./_Td)*rho(m,n);
             }
         }
+        
         return;
     }
 
@@ -331,6 +324,8 @@ private:
 
         double g0=_g[0];
         double g1=_g[1];
+        double g3=_g[2];
+        double g4=_g[3];
 
         double s0=_s[0];
         double s1=_s[1];
@@ -349,6 +344,9 @@ private:
         Hii(1,1)=epsB;
 
         Hij(1,0)=g1;
+        Hij(0,1)=g3*std::conj(fval);
+        Hij(0,0)=g4*fval;
+        Hij(1,1)=g4*fval;
 
         Sii(0,0)=1.;
         Sii(0,1)=s0*fval;
@@ -379,6 +377,8 @@ private:
 
         double g0=_g[0];
         double g1=_g[1];
+        double g3=_g[2];
+        double g4=_g[3];
 
         double s0=_s[0];
         double s1=_s[1];
@@ -397,8 +397,17 @@ private:
         dHii(0,1)=g0*df;
         dHii(1,0)=g0*std::conj(df);
 
+        dHij(0,1)=g3*std::conj(df);
+        dHij(0,0)=g4*df;
+        dHij(1,1)=g4*df;
+
         for(size_t i=0; i<_N; i++){
             dH.block<2,2>(2*i,2*i)=dHii;
+
+            if(i<(_N-1)){
+                dH.block<2,2>(2*i,2*(i+1))=dHij;
+                dH.block<2,2>(2*(i+1),2*i)=dHij.adjoint();
+            }
         }
 
         return;
