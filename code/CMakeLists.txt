@@ -2,11 +2,7 @@ cmake_minimum_required(VERSION 3.0)
 
 set(PROJECT graphene)
 
-#set(CMAKE_C_COMPILER "gcc")
-#set(CMAKE_CXX_COMPILER "g++")
-
-set(CMAKE_C_COMPILER "icc")
-set(CMAKE_CXX_COMPILER "icpc")
+MESSAGE(STATUS "Using toolchain file: ${CMAKE_TOOLCHAIN_FILE}")
 
 project(${PROJECT} C CXX)
 
@@ -24,33 +20,28 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 #    include_directories(${Python_INCLUDE_DIRS})
 #endif()
 
-set(Boost_INCLUDE_DIR "~/Packages/libs/boost/1.81.0/gcc8.3.0/include/")
-set(Boost_LIB_DIR "~/Packages/libs/boost/1.81.0/gcc8.3.0/lib/")
-
-include_directories(${Boost_INCLUDE_DIR})
-link_directories(${Boost_LIB_DIR})
-
 #FIND_PACKAGE(
 #    Boost 1.79 REQUIRED
 #    PATHS /home/ngolubev/Packages/libs/boost/1.80.0/include/
 #)
 #INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIR})
 
+#Boost
+include_directories(${Boost_INCLUDE_DIR})
+link_directories(${Boost_LIB_DIR})
+
 #Eigen
-set(Eigen_PATH "~/Packages/libs/Eigen/eigen-3.4.0")
 include_directories(${Eigen_PATH})
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR})
-
 #mINI library
-include_directories("../libs/mINI/src/")
+include_directories(${mINI_INCLUDE_DIR})
 
 #uBLAS odeint
 include_directories("../libs/odeint/")
 
 #SPLINTER
-include_directories("~/Packages/libs/splinter/include/")
-link_directories("~/Packages/libs/splinter/build/")
+include_directories(${SPLINTER_INCLUDE_DIR})
+link_directories(${SPLINTER_LIB_DIR})
 
 #add_library(
 #    ${PROJECT} SHARED
@@ -74,9 +65,12 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
 #set(CMAKE_EXE_LINKER_FLAGS "-static")
 
-find_package(OpenMP)
+find_package(OpenMP REQUIRED)
+
+include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 set(PROGS "main;analysis;data_writer;rspace")
+#set(PROGS "KGMK")
 
 foreach(PROG ${PROGS})
     set(BIN ${PROG}.exe)
@@ -84,7 +78,7 @@ foreach(PROG ${PROGS})
     add_executable(${BIN} "${CMAKE_CURRENT_SOURCE_DIR}/${PROG}.cpp")
 
     target_link_libraries(${BIN} PUBLIC "stdc++fs")
-    target_link_libraries(${BIN} PUBLIC splinter-static-3-0)
+    target_link_libraries(${BIN} PUBLIC ${SPLINTER_LIBS})
 
     target_link_libraries(${BIN} PUBLIC OpenMP::OpenMP_CXX)
 ENDFOREACH()
