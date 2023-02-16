@@ -18,6 +18,75 @@
 using namespace boost::numeric::ublas;
 typedef vector<complex_t> vector_t;
 
+std::vector<std::pair<double,double>> create_GKMG_grid(const HexagonalTBModel* tb, const size_t& N){
+    std::vector<std::pair<double,double>> res;
+
+    //get K and Kp points
+    std::vector<double> Dirac_Kx;
+    std::vector<double> Dirac_Ky;
+    std::vector<int> Dirac_type;
+    tb->get_Dirac_points(Dirac_Kx,Dirac_Ky,Dirac_type);
+
+    double Gx=0.0;
+    double Gy=0.0;
+
+    double Kx=Dirac_Kx[0];
+    double Ky=Dirac_Ky[0];
+
+    double Mx=Kx;
+    double My=0.;
+
+    //go over required points starting from G
+    double x=Gx;
+    double y=Gy;
+
+    //GK
+    double GKx=(Kx-Gx);
+    double GKy=(Ky-Gy);
+    double GK=sqrt(GKx*GKx+GKy*GKy);
+    size_t GKN=int(N*GK);
+
+    double dGKx=GKx/(GKN-1);
+    double dGKy=GKy/(GKN-1);
+    for(size_t i=0; i<GKN; i++){
+        res.push_back(std::make_pair(x,y));
+        x+=dGKx;
+        y+=dGKy;
+    }
+
+    //KM
+    double KMx=(Mx-Kx);
+    double KMy=(My-Ky);
+    double KM=sqrt(KMx*KMx+KMy*KMy);
+    size_t KMN=int(N*KM);
+
+    double dKMx=KMx/(KMN-1);
+    double dKMy=KMy/(KMN-1);
+    for(size_t i=0; i<KMN; i++){
+        if(i>0)
+            res.push_back(std::make_pair(x,y));
+        x+=dKMx;
+        y+=dKMy;
+    }
+
+    //MG
+    double MGx=(Gx-Mx);
+    double MGy=(Gy-My);
+    double MG=sqrt(MGx*MGx+MGy*MGy);
+    size_t MGN=int(N*MG);
+
+    double dMGx=MGx/(MGN-1);
+    double dMGy=MGy/(MGN-1);
+    for(size_t i=0; i<MGN; i++){
+        if(i>0)        
+            res.push_back(std::make_pair(x,y));
+        x+=dMGx;
+        y+=dMGy;
+    }
+
+    return res;
+}
+
 int main(int argc, char** argv){
     try{
         std::string fname=argv[1];
@@ -221,6 +290,63 @@ int main(int argc, char** argv){
         }
 
         kout.close();
+
+        //write GKMG data to file
+        auto GKMG_grid=create_GKMG_grid(tb,1000);
+
+        std::ofstream GKMG_out(params.GKMG_fname);
+
+        GKMG_out<<std::scientific;
+        GKMG_out<<std::setprecision(8);
+
+        GKMG_out<<"#";
+        GKMG_out<<std::setw(19)<<"kx";
+        GKMG_out<<std::setw(20)<<"ky";
+
+        col=3;
+        for(size_t ist=0; ist<Nst; ist++){
+            std::string Estr="E["+std::to_string(ist+1)+"]("+std::to_string(col)+")";
+            GKMG_out<<std::setw(20)<<Estr;
+            col++;
+        }
+
+        for(size_t ist=0; ist<Nst; ist++){
+            for(size_t jst=ist+1; jst<Nst; jst++){
+                std::string dx_str="Dx["+std::to_string(ist+1)+","+std::to_string(jst+1)+"]("+std::to_string(col)+")";
+                col++;
+                std::string dy_str="Dy["+std::to_string(ist+1)+","+std::to_string(jst+1)+"]("+std::to_string(col)+")";
+                col++;
+
+                GKMG_out<<std::setw(20)<<dx_str;
+                GKMG_out<<std::setw(20)<<dy_str;
+            }
+        }
+        GKMG_out<<std::endl;
+
+        for(auto p: GKMG_grid){
+            double kx=p.first;
+            double ky=p.second;
+
+            GKMG_out<<std::setw(20)<<kx;
+            GKMG_out<<std::setw(20)<<ky;
+
+            for(size_t ist=0; ist<Nst; ist++){
+                GKMG_out<<std::setw(20)<<gm->get_energy(kx,ky,ist)*au2eV;
+            }
+
+            for(size_t ist=0; ist<Nst; ist++){
+                for(size_t jst=ist+1; jst<Nst; jst++){
+                    double dip_x=gm->get_dipole(kx,ky,ist,jst,0);
+                    double dip_y=gm->get_dipole(kx,ky,ist,jst,1);
+
+                    GKMG_out<<std::setw(20)<<dip_x;
+                    GKMG_out<<std::setw(20)<<dip_y;
+                }
+            }            
+
+            GKMG_out<<std::endl;
+        }
+        GKMG_out.close();
 
         MultiIndex indx_kxkyst({params.Nkx,params.Nky,Nst});
         size_t N_kxkyst=indx_kxkyst.size();

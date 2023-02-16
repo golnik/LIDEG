@@ -76,6 +76,7 @@ struct Parameters{
     std::string afile_fname;
     std::string pkfile_fname;
     std::string prfile_fname;
+    std::string GKMG_fname;
 
     void print(std::ostream& out) const{
         out<<"********************************************\n";
@@ -360,6 +361,9 @@ public:
 
         fs::path prfile_path(_params.outdir);
         _params.prfile_fname=(prfile_path/=ini.get("output").get("prfile")).c_str();        
+
+        fs::path GKMG_path(_params.outdir);
+        _params.GKMG_fname=(GKMG_path/=ini.get("output").get("GKMGfile")).c_str();
     }
 private:
     template<typename T>
