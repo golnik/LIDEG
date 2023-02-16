@@ -144,14 +144,6 @@ def plot_rspace(params,tstep,figname,layers=True):
 
     fig, axes = plt.subplots(figsize=(9,nrows*3),nrows=nrows,ncols=3)
 
-    #zmin = rho_xy.min()
-    #zmax = rho_xy.max()
-
-    #ZZ = max(abs(zmin),abs(zmax))
-    ZZ = 0.01
-
-    levels = np.linspace(-ZZ,ZZ,151)
-
     zgrid_full = np.linspace(params.zmin,params.zmax,params.Nz)
 
     for iz in range(len(zz_indx)):
@@ -169,6 +161,13 @@ def plot_rspace(params,tstep,figname,layers=True):
             else:
                 ax = axes[iz,ip]
             
+            zmin = rho_xy.min()
+            zmax = rho_xy.max()
+            ZZ = max(abs(zmin),abs(zmax))
+            #ZZ = 0.01
+
+            levels = np.linspace(-ZZ,ZZ,151)
+
             plot2D_rspace(ax,params,rho_xy,cm.seismic,levels)
 
             ax.set_box_aspect(1)
