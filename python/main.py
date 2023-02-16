@@ -11,26 +11,31 @@ import matplotlib.pyplot as plt
 plt.rcParams.update({'font.size': 16})
 plt.rcParams["mathtext.fontset"] = "cm"
 
-from plots.plot_debug import *
-from plots.plot_tdata import *
-from plots.plot_reciprocal import *
-from plots.plot_rspace import *
-from plots.plot_2D import *
+#from plots.plot_debug import *
+#from plots.plot_tdata import *
+#from plots.plot_reciprocal import *
+#from plots.plot_rspace import *
+#from plots.plot_2D import *
 #from plots.plot_3D import *
-from plots.plot_all import *
-from plots.plot_pyqtgraph import *
-from plots.plot_plotly import *
-from plots.plot_orb2D import *
+#from plots.plot_all import *
+#from plots.plot_pyqtgraph import *
+#from plots.plot_plotly import *
+#from plots.plot_orb2D import *
 
 from plots_new.plot2D_rspace import *
 from plots_new.plot2D_kspace import *
-from plots_new.plot3D_rspace import *
+#from plots_new.plot3D_rspace import *
 
 au2nm  = 0.052917829614246
 au2A   = au2nm*10
 au2eV  = 27.211396641308
 au2Vnm = 5.14220826*10**2
 au2fs  = 0.02418884254
+
+def find_nearest_indx(array, value):
+    array = np.asarray(array)
+    idx = (np.abs(array - value)).argmin()
+    return idx
 
 def plot_tstep(params,it,fig_fname=None):
     if fig_fname==None:
@@ -98,7 +103,7 @@ def plot_prfile(params,figname):
     plt.savefig(figname,dpi=150)
     plt.close()
 
-def plot_rspace(params,tstep,figname):
+def plot_rspace(params,tstep,figname,layers=True):
     #load data from prfile
     prdata = np.loadtxt(params.prfile_fname)
     prdata_xyz = prdata[:,0].reshape((params.Nx,params.Ny,params.Nz))
@@ -114,49 +119,99 @@ def plot_rspace(params,tstep,figname):
     rhos = [rho_nocoh_xyz-prdata_xyz,
             rho_coh_xyz,
             rho_tot_xyz-prdata_xyz]
+ 
+    zz_indx = []
+    
+    if layers == True:
+        if params.nlayers > 1:
+            zvals = np.zeros(params.nlayers+1,dtype=float)
+            zvals[0] = params.zmin
+            zvals[-1] = params.zmax
 
-    zgrid = np.linspace(params.zmin,params.zmax,params.Nz)
+            zval = 0.5*params.d
+            for il in range(params.nlayers-1):
+                zvals[il+1] = zval
+                zval += params.d
+
+            for il in range(params.nlayers):
+                zindx_min = find_nearest_indx(zgrid_full,zvals[il])
+                zindx_max = find_nearest_indx(zgrid_full,zvals[il+1])
+
+                zz_indx.append([zindx_min,zindx_max])
+
+    zz_indx.append([0,params.Nz])
+    nrows = len(zz_indx)
+
+    fig, axes = plt.subplots(figsize=(9,nrows*3),nrows=nrows,ncols=3)
 
     #zmin = rho_xy.min()
     #zmax = rho_xy.max()
 
     #ZZ = max(abs(zmin),abs(zmax))
-    ZZ = 0.002
+    ZZ = 0.01
 
     levels = np.linspace(-ZZ,ZZ,151)
 
-    fig, axes = plt.subplots(figsize=(9,3),nrows=1,ncols=3)
+    zgrid_full = np.linspace(params.zmin,params.zmax,params.Nz)
 
-    for ip in range(3):
-        rho_xyz = rhos[ip]
-        rho_xy = np.transpose(np.trapz(rho_xyz,x=zgrid,axis=2))
+    for iz in range(len(zz_indx)):
+        izmin = zz_indx[iz][0]
+        izmax = zz_indx[iz][1]
 
-        ax = axes[ip]
-        plot2D_rspace(ax,params,rho_xy,cm.seismic,levels)
+        zgrid = zgrid_full[izmin:izmax]
 
-        ax.set_box_aspect(1)
-        #ax.set_xlabel(r"$x [\AA]$",labelpad=10)
-        #ax.set_ylabel(r"$y [\AA]$",labelpad=5)
+        for ip in range(3):
+            rho_xyz = rhos[ip][:,:,izmin:izmax]
+            rho_xy = np.transpose(np.trapz(rho_xyz,x=zgrid,axis=2))
 
-        ax.set_xlim([params.xmin*au2A,params.xmax*au2A])
-        ax.set_ylim([params.ymin*au2A,params.ymax*au2A])
+            if nrows == 1:
+                ax = axes[ip]
+            else:
+                ax = axes[iz,ip]
+            
+            plot2D_rspace(ax,params,rho_xy,cm.seismic,levels)
+
+            ax.set_box_aspect(1)
+            #ax.set_xlabel(r"$x [\AA]$",labelpad=10)
+            #ax.set_ylabel(r"$y [\AA]$",labelpad=5)
+
+            ax.set_xlim([params.xmin*au2A,params.xmax*au2A])
+            ax.set_ylim([params.ymin*au2A,params.ymax*au2A])
 
     plt.subplots_adjust(left=0.05, bottom=0.05, right=0.98, top=1, wspace=0.2, hspace=0.25)
 
     plt.savefig(figname,dpi=150)
     plt.close()    
 
-def plot_kspace(params,tstep,figname):
+def plot_kspace(params,tstep,figname,pulse=False):
     Nst = 2*params.nlayers  #get number of states
-    ist = Nst               #state to plot
-
-    fig, ax = plt.subplots(figsize=(8,8))
+    ist = Nst-1             #state to plot
 
     dens_t_fname = params.densfile_fname.replace("%it",'{:06}'.format(tstep))
 
     dens_data = np.loadtxt(dens_t_fname)
-    dens_cc = np.transpose(dens_data[:,ist-1].reshape((params.Nkx,params.Nky)))
+    dens_cc = np.transpose(dens_data[:,ist].reshape((params.Nkx,params.Nky)))
 
+    tfile_data = np.loadtxt(params.tfile_fname)
+
+    fig = plt.figure(figsize=(9,8))
+
+    gs = fig.add_gridspec(2,1,width_ratios=[1],height_ratios=[0.3,1])
+    gs.update(wspace=0.5,hspace=0.3)
+
+    axp = fig.add_subplot(gs[0])
+    axp.plot(tfile_data[:,0],tfile_data[:,1])
+    axp.set_xlim([params.tmin*au2fs,params.tmax*au2fs])
+
+    time = params.tgrid[tstep-1]*au2fs
+    time_str = "Time: %s fs" % ('{:6.2f}'.format(time))
+
+    plt.figtext(0.7,0.93,time_str)
+
+    axp.axvline(time,c='r',lw=3)
+    axp.set_xlabel("Time [fs]",labelpad=10)
+
+    ax = fig.add_subplot(gs[-1])
     plot2D_kspace(ax,params,dens_cc)
 
     ax.set_box_aspect(1)
@@ -198,7 +253,7 @@ if __name__=="__main__":
         tstep = int(args.tstep)
 
     if fig_fname==None:
-        fig_fname = "fig_%s.png" % ('{:06}'.format(tstep))
+        fig_fname = "fig_%s_%s.png" % (args.task,'{:06}'.format(tstep))
         fig_fname = os.path.join(fig_dir,fig_fname)
 
     if args.task=="prfile":

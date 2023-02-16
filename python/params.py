@@ -21,6 +21,7 @@ class InputParams:
         self.layers = config['system']['layers']
         self.nlayers = sum(self.layers.count(st) for st in ['A','B','C'])
 
+        self.d = float(config['system']['d'])/au2A
         self.a = float(config['system']['a'])/au2A
         #self.s = float(config['system']['s'])
         #self.Z = float(config['system']['Z'])
