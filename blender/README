@@ -1,0 +1,5 @@
+1. Go to blender/$(ver)/python folder where $(ver) is the blender version.
+2. Install python pip manager to blender python interpreter by executing the following commands:
+		bin/pythonX lib/pythonX/ensurepip where X is the python version
+3. Install required libraries
+		bin/pythonX -m pip install numpy scipy scikit-image
