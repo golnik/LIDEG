@@ -36,6 +36,9 @@ include_directories(${Eigen_PATH})
 #mINI library
 include_directories(${mINI_INCLUDE_DIR})
 
+#cxxopts library
+include_directories(${COPTS_INCLUDE_DIR})
+
 #uBLAS odeint
 include_directories("../libs/odeint/")
 

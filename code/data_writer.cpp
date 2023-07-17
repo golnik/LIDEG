@@ -1,6 +1,7 @@
 #include <iostream>
 
 #include "mini/ini.h"
+#include <cxxopts.hpp>
 
 #include "utils/utils.hpp"
 #include "utils/grid.hpp"
@@ -89,7 +90,30 @@ std::vector<std::pair<double,double>> create_GKMG_grid(const HexagonalTBModel* t
 
 int main(int argc, char** argv){
     try{
-        std::string fname=argv[1];
+        cxxopts::Options options("Graphene data writer program","This program generates kspace and rspace data");
+
+        options.add_options()
+            ("f,fname", "Input filename", cxxopts::value<std::string>())
+            ("rspace", "Enable real-space calculations", cxxopts::value<bool>()->default_value("false"))
+            ("h,help", "Print usage")
+        ;
+
+        auto result=options.parse(argc,argv);
+
+        if(result.count("help")){
+            std::cout<<options.help()<<std::endl;
+            exit(0);
+        }
+
+        std::string fname;
+        if(result.count("fname")){
+            fname=result["fname"].as<std::string>();
+        }
+        else{
+            throw std::string("Input file name is not specified!");
+        }
+
+        bool rspace=result["rspace"].as<bool>();
 
         Parameters params;
         Parser parser(params);
@@ -348,165 +372,166 @@ int main(int argc, char** argv){
         }
         GKMG_out.close();
 
-        MultiIndex indx_kxkyst({params.Nkx,params.Nky,Nst});
-        size_t N_kxkyst=indx_kxkyst.size();
+        if(rspace){
+            MultiIndex indx_kxkyst({params.Nkx,params.Nky,Nst});
+            size_t N_kxkyst=indx_kxkyst.size();
 
-        MultiIndex indx_xyzst({params.Nx,params.Ny,params.Nz,Nst});
-        size_t N_xyzst=indx_xyzst.size();
+            MultiIndex indx_xyzst({params.Nx,params.Ny,params.Nz,Nst});
+            size_t N_xyzst=indx_xyzst.size();
 
-        //compute eigenstates in reciprocal space
-        std::vector<vector_t> vecs(N_kxkyst);
+            //compute eigenstates in reciprocal space
+            std::vector<vector_t> vecs(N_kxkyst);
 
-        for(size_t ist=0; ist<Nst; ist++){
-            for(size_t ikx=0; ikx<Nkx; ikx++){
-                for(size_t iky=0; iky<Nky; iky++){
-                    double kx=(*kxygrid)(ikx,iky)[0];
-                    double ky=(*kxygrid)(ikx,iky)[1];
+            for(size_t ist=0; ist<Nst; ist++){
+                for(size_t ikx=0; ikx<Nkx; ikx++){
+                    for(size_t iky=0; iky<Nky; iky++){
+                        double kx=(*kxygrid)(ikx,iky)[0];
+                        double ky=(*kxygrid)(ikx,iky)[1];
 
-                    size_t indx_ikxikyist=indx_kxkyst({ikx,iky,ist});
-                    vecs[indx_ikxikyist]=gm->get_state(kx,ky,ist);
+                        size_t indx_ikxikyist=indx_kxkyst({ikx,iky,ist});
+                        vecs[indx_ikxikyist]=gm->get_state(kx,ky,ist);
+                    }
                 }
             }
-        }
 
-        //create graphene material
-        Orbital* pz=new Pzorb_normal(params.Z);
-        Material graphene;
+            //create graphene material
+            Orbital* pz=new Pzorb_normal(params.Z);
+            Material graphene;
 
-        //generate graphene
-        for(size_t il=0; il<params.nlayers; il++){
-            double x=0.;//shift of the layer depending on stacking
-            
-            stacking ABC=params.layers[il];
-            switch(ABC){
-                case stacking::A:
-                    x=0.;
-                    break;
-                case stacking::B:
-                    x=params.a/sqrt(3.);
-                    break;
-                case stacking::C:
-                    x=2.*params.a/sqrt(3.);
-                    break;
+            //generate graphene
+            for(size_t il=0; il<params.nlayers; il++){
+                double x=0.;//shift of the layer depending on stacking
+                
+                stacking ABC=params.layers[il];
+                switch(ABC){
+                    case stacking::A:
+                        x=0.;
+                        break;
+                    case stacking::B:
+                        x=params.a/sqrt(3.);
+                        break;
+                    case stacking::C:
+                        x=2.*params.a/sqrt(3.);
+                        break;
+                }
+
+                double z=il*params.d;//position of the layer in z coordinate
+
+                //A..B atoms in graphene layer
+                AtomsSet setA=GenerateGraphenePattern(pz,params.a,params.Nclx,params.Ncly,x,0.,z);
+                AtomsSet setB=GenerateGraphenePattern(pz,params.a,params.Nclx,params.Ncly,x+params.a/sqrt(3.),0.,z);
+
+                setA.compute_on_grid(kxygrid);
+                setB.compute_on_grid(kxygrid);
+                
+                graphene.add_atomsset(setA);
+                graphene.add_atomsset(setB);
             }
 
-            double z=il*params.d;//position of the layer in z coordinate
+            //print atom positions to file
+            std::ofstream atoms_out;
+            atoms_out.open(params.afile_fname);
+            graphene.print_atoms(atoms_out);
+            atoms_out.close();
 
-            //A..B atoms in graphene layer
-            AtomsSet setA=GenerateGraphenePattern(pz,params.a,params.Nclx,params.Ncly,x,0.,z);
-            AtomsSet setB=GenerateGraphenePattern(pz,params.a,params.Nclx,params.Ncly,x+params.a/sqrt(3.),0.,z);
+            std::vector<double> Psi(N_xyzst);//eigenstates data in real space
 
-            setA.compute_on_grid(kxygrid);
-            setB.compute_on_grid(kxygrid);
-            
-            graphene.add_atomsset(setA);
-            graphene.add_atomsset(setB);
-        }
+            //write rdata to file
+            std::ofstream rout(params.prfile_fname);
+            rout<<std::scientific;
+            rout<<std::setprecision(15);
 
-        //print atom positions to file
-        std::ofstream atoms_out;
-        atoms_out.open(params.afile_fname);
-        graphene.print_atoms(atoms_out);
-        atoms_out.close();
+            rout<<"#";
 
-        std::vector<double> Psi(N_xyzst);//eigenstates data in real space
+            col=1;
+            for(size_t ist=0; ist<Nst; ist++){
+                std::string Psistr="Psi["+std::to_string(ist+1)+"]("+std::to_string(col)+")";
+                rout<<std::setw(25)<<Psistr;
+                col++;
+            }
+            rout<<std::endl;
 
-        //write rdata to file
-        std::ofstream rout(params.prfile_fname);
-        rout<<std::scientific;
-        rout<<std::setprecision(15);
+            for(size_t ix=0; ix<params.Nx; ix++){
+                std::cout<<"ix: "<<ix<<std::endl;
+                for(size_t iy=0; iy<params.Ny; iy++){
+                    for(size_t iz=0; iz<params.Nz; iz++){
+                        double x=(*xygrid)(ix,iy)[0];
+                        double y=(*xygrid)(ix,iy)[1];
+                        double z=(*zgrid)[iz];
 
-        rout<<"#";
+                        //integrate in reciprocal space                        
+                        auto func=[x,y,z,
+                            Nst,
+                            &indx_kxkyst,
+                            &vecs,&graphene](const size_t& ikx, const size_t& iky){
 
-        col=1;
-        for(size_t ist=0; ist<Nst; ist++){
-            std::string Psistr="Psi["+std::to_string(ist+1)+"]("+std::to_string(col)+")";
-            rout<<std::setw(25)<<Psistr;
-            col++;
-        }
-        rout<<std::endl;
+                            //we will return eigenstates
+                            vector<double> res(Nst);
 
-        for(size_t ix=0; ix<params.Nx; ix++){
-            std::cout<<"ix: "<<ix<<std::endl;
-            for(size_t iy=0; iy<params.Ny; iy++){
-                for(size_t iz=0; iz<params.Nz; iz++){
-                    double x=(*xygrid)(ix,iy)[0];
-                    double y=(*xygrid)(ix,iy)[1];
-                    double z=(*zgrid)[iz];
-
-                    //integrate in reciprocal space                        
-                    auto func=[x,y,z,
-                        Nst,
-                        &indx_kxkyst,
-                        &vecs,&graphene](const size_t& ikx, const size_t& iky){
-
-                        //we will return eigenstates
-                        vector<double> res(Nst);
-
-                        //compute Bloch functions
-                        std::vector<complex_t> BPhis(Nst);
-                        for(size_t ist=0; ist<Nst; ist++){
-                            BPhis[ist]=graphene.PhiI(ist,x,y,z,ikx,iky);
-                        }
-
-                        //compute eigenstates
-                        for(size_t ist=0; ist<Nst; ist++){
-                            complex_t Psi=0.;
-                            for(size_t jst=0; jst<Nst; jst++){
-                                size_t indx_ikxikyist=indx_kxkyst({ikx,iky,ist});
-                                size_t indx_ikxikyjst=indx_kxkyst({ikx,iky,jst});
-                                Psi+=vecs[indx_ikxikyist][jst]*BPhis[jst];
+                            //compute Bloch functions
+                            std::vector<complex_t> BPhis(Nst);
+                            for(size_t ist=0; ist<Nst; ist++){
+                                BPhis[ist]=graphene.PhiI(ist,x,y,z,ikx,iky);
                             }
-                            res(ist)=std::norm(Psi);
+
+                            //compute eigenstates
+                            for(size_t ist=0; ist<Nst; ist++){
+                                complex_t Psi=0.;
+                                for(size_t jst=0; jst<Nst; jst++){
+                                    size_t indx_ikxikyist=indx_kxkyst({ikx,iky,ist});
+                                    size_t indx_ikxikyjst=indx_kxkyst({ikx,iky,jst});
+                                    Psi+=vecs[indx_ikxikyist][jst]*BPhis[jst];
+                                }
+                                res(ist)=std::norm(Psi);
+                            }
+                            
+                            return res;
+                        };
+
+                        vector<double> res=zero_vector<double>(Nst);
+                        integrator_kxky->trapz(func,res);
+                        res*=2./SBZ;//normalize for area of the BZ
+
+                        for(size_t ist=0; ist<Nst; ist++){
+                            size_t indx_ixiyizist=indx_xyzst({ix,iy,iz,ist});
+                            Psi[indx_ixiyizist]=res(ist);
                         }
-                        
-                        return res;
-                    };
 
-                    vector<double> res=zero_vector<double>(Nst);
-                    integrator_kxky->trapz(func,res);
-                    res*=2./SBZ;//normalize for area of the BZ
+                        //write eigenstates to files
+                        for(size_t ist=0; ist<res.size(); ist++){
+                            rout<<std::setw(25)<<res(ist);
+                        }
 
-                    for(size_t ist=0; ist<Nst; ist++){
-                        size_t indx_ixiyizist=indx_xyzst({ix,iy,iz,ist});
-                        Psi[indx_ixiyizist]=res(ist);
+                        rout<<std::endl;
                     }
-
-                    //write eigenstates to files
-                    for(size_t ist=0; ist<res.size(); ist++){
-                        rout<<std::setw(25)<<res(ist);
-                    }
-
-                    rout<<std::endl;
                 }
             }
-        }
-        rout.close();
+            rout.close();
 
-        //integrate in real space
-        for(size_t ist=0; ist<Nst; ist++){
-            //integrate in xy coordinates
-            std::vector<double> res_xy(params.Nz);
-            for(size_t iz=0; iz<zgrid->size(); iz++){
-                auto int_xy=[iz,ist,&Psi,&indx_xyzst](const size_t& ix, const size_t& iy){
-                    size_t indx_ixiyizist=indx_xyzst({ix,iy,iz,ist});
-                    return Psi[indx_ixiyizist];
-                };
-                double res=0.;
-                integrator_xy->trapz(int_xy,res);
-                res_xy[iz]=res;
+            //integrate in real space
+            for(size_t ist=0; ist<Nst; ist++){
+                //integrate in xy coordinates
+                std::vector<double> res_xy(params.Nz);
+                for(size_t iz=0; iz<zgrid->size(); iz++){
+                    auto int_xy=[iz,ist,&Psi,&indx_xyzst](const size_t& ix, const size_t& iy){
+                        size_t indx_ixiyizist=indx_xyzst({ix,iy,iz,ist});
+                        return Psi[indx_ixiyizist];
+                    };
+                    double res=0.;
+                    integrator_xy->trapz(int_xy,res);
+                    res_xy[iz]=res;
+                }
+
+                //integrate in z coordinate
+                double sum=0;
+                integrator_z->trapz(
+                    [&res_xy](const size_t& iz){
+                        return res_xy[iz];
+                    },sum);
+
+                std::cout<<"XYZkxky integral of eigenstate "<<ist+1<<": "<<sum<<std::endl;
             }
-
-            //integrate in z coordinate
-            double sum=0;
-            integrator_z->trapz(
-                [&res_xy](const size_t& iz){
-                    return res_xy[iz];
-                },sum);
-
-            std::cout<<"XYZkxky integral of eigenstate "<<ist+1<<": "<<sum<<std::endl;
         }
-
     }catch(std::string er){
         std::cout<<' '<<er<<std::endl;
         std::cout<<" Task not accomplished.\n";
