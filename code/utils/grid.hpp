@@ -113,6 +113,9 @@ public:
     virtual double integrate(const func_t& f) const=0;
 
     virtual double get_dS() const=0;
+
+    virtual std::complex<double> iPW(const double& x, const double& y, const size_t& m, const size_t& n, const double& phi) const=0;
+    virtual std::complex<double>  PW(const double& x, const double& y, const size_t& m, const size_t& n, const double& phi) const=0;    
 private:
 };
 
@@ -151,6 +154,14 @@ public:
         double dx=(*_xgrid)[1]-(*_xgrid)[0];
         double dy=(*_ygrid)[1]-(*_ygrid)[0];
         return dx*dy;
+    }
+
+    std::complex<double> iPW(const double& x, const double& y, const size_t& m, const size_t& n, const double& phi) const override{
+        return 0.;
+    }
+
+    std::complex<double> PW(const double& x, const double& y, const size_t& m, const size_t& n, const double& phi) const override{
+        return 0.;
     }    
 private:
     Grid1D* _xgrid;
@@ -248,6 +259,21 @@ public:
         double dS=na*na*sin(theta);
 
         return dS;
+    }
+
+    std::complex<double> iPW(const double& x, const double& y, const size_t& m, const size_t& n, const double& phi) const override{
+        auto H=(*_O)+m*(*_a)+n*(*_b);
+        double H_r=H[0]*x+H[1]*y;
+        return exp(I*(H_r-phi));
+    }
+
+    std::complex<double> PW(const double& x, const double& y, const size_t& m, const size_t& n, const double& phi) const override{
+        double S=this->get_dS();
+
+        auto H=(*_O)+m*(*_a)+n*(*_b);
+        double H_r=H[0]*x+H[1]*y;
+
+        return (1./S)*exp(-I*(H_r-phi));
     }
 private:
     size_t _Nx;
