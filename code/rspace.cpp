@@ -276,10 +276,10 @@ int main(int argc, char** argv){
                         &indx_kxkyst,
                         &vecs,&graphene](const size_t& ikx, const size_t& iky){
 
-                        //we output:
-                        //1..Nst A-modified eigenstates,
-                        //rho_nocoh
                         vector<double> res(6);
+                        for(size_t i=0; i<res.size(); i++){
+                            res(i)=0.;
+                        }
 
                         //compute Bloch functions
                         std::vector<complex_t> BPhis(Nst);
@@ -320,12 +320,17 @@ int main(int argc, char** argv){
                         for(size_t ist=0; ist<Nst; ist++){
                             for(size_t jst=ist+1; jst<Nst; jst++){
                                 double re=coh_re_data[indx](ikx,iky);
-                                double im=coh_im_data[indx](ikx,iky);
-                                complex_t coh=re+I*im;
+                                double im=-coh_im_data[indx](ikx,iky);
+                                
+                                //complex_t coh=re+I*im;
 
                                 complex_t psi_istjst=std::conj(Psis[ist])*Psis[jst];
+                                double Pre=std::real(psi_istjst);
+                                double Pim=std::imag(psi_istjst);
 
-                                rho_coh+=2.*std::real(coh*psi_istjst);
+                                //rho_coh+=2.*std::real(coh*psi_istjst);
+
+                                rho_coh+=2.*(Pre+Pim);
 
                                 indx++;
                             }
