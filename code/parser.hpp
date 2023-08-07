@@ -77,6 +77,7 @@ struct Parameters{
     std::string pkfile_fname;
     std::string prfile_fname;
     std::string GKMG_fname;
+    std::string diffr_fname;
 
     void print(std::ostream& out) const{
         out<<"********************************************\n";
@@ -364,6 +365,11 @@ public:
 
         fs::path GKMG_path(_params.outdir);
         _params.GKMG_fname=(GKMG_path/=ini.get("output").get("GKMGfile")).c_str();
+
+        fs::path diffr_path(_params.outdir);
+        auto diffr_fname=ini.get("output").get("diffrfile");
+        if(diffr_fname.empty()) diffr_fname="diffr_%type.dat";
+        _params.diffr_fname=(diffr_path/=diffr_fname).c_str();
     }
 private:
     template<typename T>
