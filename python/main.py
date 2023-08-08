@@ -37,37 +37,24 @@ def find_nearest_indx(array, value):
     idx = (np.abs(array - value)).argmin()
     return idx
 
-def plot_tstep(params,it,fig_fname=None):
-    if fig_fname==None:
-        fig_fname = "fig_%s.png" % ('{:06}'.format(it+1))
-        fig_fname = os.path.join(fig_dir,fig_fname)
+def plot_tfile(fig,params,tstep,col):
+    axs = fig.add_subplot(111)
 
-    print("%s figure will be created" % fig_fname)
+    tfile_data = np.loadtxt(params.tfile_fname)
 
-    dens_t_fname = params.densfile_fname.replace("%it",'{:06}'.format(it+1))
-    rho_t_fname = params.rhofile_fname.replace("%it",'{:06}'.format(it+1))
+    tgrid = tfile_data[:,0]
+    data  = tfile_data[:,col]
 
-    dens_f_exists = os.path.exists(dens_t_fname)
-    rho_f_exists  = os.path.exists(rho_t_fname)
+    axs.plot(tgrid,data)
+    axs.set_xlim([params.tmin*au2fs,params.tmax*au2fs])
 
-    if dens_f_exists:
-        dens_data = np.loadtxt(dens_t_fname)
-        dens_cc = np.transpose(dens_data[:,1].reshape((params.Nkx,params.Nky)))
-        #plot_reciprocal(params,it,dens_cc,fig_fname)
+    time = params.tgrid[tstep-1]*au2fs
+    time_str = "Time: %s fs" % ('{:6.2f}'.format(time))
 
-    if rho_f_exists:
-        rho_data = np.loadtxt(rho_t_fname)
-        #rho_data = np.transpose(rho_data[:].reshape((params.Nx,params.Ny)))
+    axs.text(0.7,0.9,time_str,transform=plt.gcf().transFigure)
 
-        #plot_rspace(params,it,rho_data,fig_fname)
-
-        #plot_2D(params,it,rho_data,fig_fname)
-        #plot_3D(params,it,rho_data,fig_fname)
-
-    #if dens_f_exists and rho_f_exists:
-    #    plot_all(params,it,dens_cc,rho_data,fig_fname)
-
-    #plot_plotly(params,fig_fname)
+    axs.axvline(time,c='r',lw=3)
+    axs.set_xlabel("Time [fs]",labelpad=10)
 
     return
 
@@ -103,7 +90,7 @@ def plot_prfile(params,figname):
     plt.savefig(figname,dpi=150)
     plt.close()
 
-def plot_rspace(params,tstep,figname,layers=True):
+def plot_rspace(fig,params,tstep,layers=False):
     #load data from prfile
     prdata = np.loadtxt(params.prfile_fname)
     prdata_xyz = prdata[:,0].reshape((params.Nx,params.Ny,params.Nz))
@@ -112,14 +99,27 @@ def plot_rspace(params,tstep,figname,layers=True):
     rho_t_fname = params.rhofile_fname.replace("%it",'{:06}'.format(tstep))
     rho_data = np.loadtxt(rho_t_fname)
 
+    #reshape densities to 3D arrays
     rho_nocoh_xyz = rho_data[:,0].reshape((params.Nx,params.Ny,params.Nz))
     rho_coh_xyz   = rho_data[:,1].reshape((params.Nx,params.Ny,params.Nz))
     rho_tot_xyz   = rho_data[:,2].reshape((params.Nx,params.Ny,params.Nz))
     
+    #densities for plotting
     rhos = [rho_nocoh_xyz-prdata_xyz,
             rho_coh_xyz,
             rho_tot_xyz-prdata_xyz]
  
+    #define number of columns and rows to plot
+    ncols = 3
+    col_names = ['intra','inter','total']
+
+    nrows = 1
+    row_names = []
+    if layers == True:
+        row_names = ['L{}'.format(row+1) for row in range(params.nlayers)]
+    row_names.append("T")
+
+    #create required z grids for multilayer plotting
     zz_indx = []
     
     if layers == True:
@@ -139,34 +139,36 @@ def plot_rspace(params,tstep,figname,layers=True):
 
                 zz_indx.append([zindx_min,zindx_max])
 
+    #overall grid
     zz_indx.append([0,params.Nz])
-    nrows = len(zz_indx)
-
-    fig, axes = plt.subplots(figsize=(9,nrows*3),nrows=nrows,ncols=3)
 
     zgrid_full = np.linspace(params.zmin,params.zmax,params.Nz)
 
+    indx = 1 #plot index
     for iz in range(len(zz_indx)):
         izmin = zz_indx[iz][0]
         izmax = zz_indx[iz][1]
 
         zgrid = zgrid_full[izmin:izmax]
 
-        for ip in range(3):
+        #plot nocoh, coh, and total densities
+        for ip in range(ncols):
             rho_xyz = rhos[ip][:,:,izmin:izmax]
             rho_xy = np.transpose(np.trapz(rho_xyz,x=zgrid,axis=2))
 
-            if nrows == 1:
-                ax = axes[ip]
-            else:
-                ax = axes[iz,ip]
-            
             zmin = rho_xy.min()
             zmax = rho_xy.max()
             ZZ = max(abs(zmin),abs(zmax))
             #ZZ = 0.01
 
             levels = np.linspace(-ZZ,ZZ,151)
+
+            ax = fig.add_subplot(nrows,ncols,indx)
+
+            if iz == 0:
+                ax.set_title(col_names[ip])
+            if ip == 0:
+                ax.set_ylabel(row_names[iz], rotation=0, size='large',labelpad=20)
 
             plot2D_rspace(ax,params,rho_xy,cm.seismic,levels)
 
@@ -177,66 +179,13 @@ def plot_rspace(params,tstep,figname,layers=True):
             ax.set_xlim([params.xmin*au2A,params.xmax*au2A])
             ax.set_ylim([params.ymin*au2A,params.ymax*au2A])
 
-    plt.subplots_adjust(left=0.05, bottom=0.05, right=0.98, top=1, wspace=0.2, hspace=0.25)
+            plot_coords(ax,params)
 
-    plt.savefig(figname,dpi=150)
-    plt.close()    
+            indx += 1
 
-def plot_rspace_pulse(params,tstep,figname):
-    #load data from prfile
-    prdata = np.loadtxt(params.prfile_fname)
-    prdata_xyz = prdata[:,0].reshape((params.Nx,params.Ny,params.Nz))
+    return
 
-    #load data from rhofile
-    rho_t_fname = params.rhofile_fname.replace("%it",'{:06}'.format(tstep))
-    rho_data = np.loadtxt(rho_t_fname)
-
-    rho_nocoh_xyz = rho_data[:,0].reshape((params.Nx,params.Ny,params.Nz))
-    rho_coh_xyz   = rho_data[:,1].reshape((params.Nx,params.Ny,params.Nz))
-    rho_tot_xyz   = rho_data[:,2].reshape((params.Nx,params.Ny,params.Nz))
-    
-    rhos = [rho_nocoh_xyz-prdata_xyz,
-            rho_coh_xyz,
-            rho_tot_xyz-prdata_xyz]
-
-    fig = plt.figure(figsize=(7,9))
-    gs = fig.add_gridspec(1,1)
-
-    field = True
-    if field is True:
-        gs = fig.add_gridspec(2,1,width_ratios=[1],height_ratios=[0.3,1])
-        gs.update(wspace=0.5,hspace=0.3)
-
-        tfile_data = np.loadtxt(params.tfile_fname)
-
-        axp = fig.add_subplot(gs[0])
-        axp.plot(tfile_data[:,0],tfile_data[:,1])
-        axp.set_xlim([params.tmin*au2fs,params.tmax*au2fs])
-
-        time = params.tgrid[tstep-1]*au2fs
-        time_str = "Time: %s fs" % ('{:6.2f}'.format(time))
-
-        plt.figtext(0.7,0.92,time_str)
-
-        axp.axvline(time,c='r',lw=3)
-        axp.set_xlabel("Time [fs]",labelpad=10)
-
-    ax = fig.add_subplot(gs[-1])
-
-    zgrid = np.linspace(params.zmin,params.zmax,params.Nz)
-
-    rho_xyz = rhos[2]
-    rho_xy = np.transpose(np.trapz(rho_xyz,x=zgrid,axis=2))
-    
-    #zmin = rho_xy.min()
-    #zmax = rho_xy.max()
-    #ZZ = max(abs(zmin),abs(zmax))
-    ZZ = 0.8
-
-    levels = np.linspace(-ZZ,ZZ,151)
-
-    plot2D_rspace(ax,params,rho_xy,cm.seismic,levels)
-
+def plot_coords(ax,params):
     acoords = params.atom_coords
     Natoms = len(acoords)
     for ia in range(Natoms):
@@ -250,21 +199,11 @@ def plot_rspace_pulse(params,tstep,figname):
 
             if r<1.5:
                 ax.plot([xi,xj],[yi,yj],color='black')
+    return
 
+def plot_kspace(fig,params,tstep):
+    axs = fig.add_subplot(1,1,1)
 
-    #ax.set_box_aspect(1)
-    ax.set_xlabel(r"$x [\AA]$",labelpad=10)
-    ax.set_ylabel(r"$y [\AA]$",labelpad=5)
-
-    ax.set_xlim([params.xmin*au2A,params.xmax*au2A])
-    ax.set_ylim([params.ymin*au2A,params.ymax*au2A])
-
-    plt.subplots_adjust(left=0.15, bottom=0.1, right=0.95, top=0.95, wspace=0.2, hspace=0.25)
-
-    plt.savefig(figname,dpi=150)
-    plt.close()
-
-def plot_kspace(params,tstep,figname,pulse=False):
     Nst = 2*params.nlayers  #get number of states
     ist = Nst-1             #state to plot
 
@@ -273,45 +212,19 @@ def plot_kspace(params,tstep,figname,pulse=False):
     dens_data = np.loadtxt(dens_t_fname)
     dens_cc = np.transpose(dens_data[:,ist].reshape((params.Nkx,params.Nky)))
 
-    fig = plt.figure(figsize=(7,8))
-    gs = fig.add_gridspec(1,1)
+    plot2D_kspace(axs,params,dens_cc)#,energies=[1.65,1.65*2])
 
-    field = True
-    if field is True:
-        gs = fig.add_gridspec(2,1,width_ratios=[1],height_ratios=[0.3,1])
-        gs.update(wspace=0.5,hspace=0.3)
+    axs.set_box_aspect(1)
+    axs.set_xlabel(r"$k_x [\mathrm{nm}^{-1}]$",labelpad=10)
+    axs.set_ylabel(r"$k_y [\mathrm{nm}^{-1}]$",labelpad=5)
 
-        tfile_data = np.loadtxt(params.tfile_fname)
-
-        axp = fig.add_subplot(gs[0])
-        axp.plot(tfile_data[:,0],tfile_data[:,1])
-        axp.set_xlim([params.tmin*au2fs,params.tmax*au2fs])
-
-        time = params.tgrid[tstep-1]*au2fs
-        time_str = "Time: %s fs" % ('{:6.2f}'.format(time))
-
-        plt.figtext(0.7,0.93,time_str)
-
-        axp.axvline(time,c='r',lw=3)
-        axp.set_xlabel("Time [fs]",labelpad=10)
-
-    ax = fig.add_subplot(gs[-1])
-    plot2D_kspace(ax,params,dens_cc)#,energies=[1.65,1.65*2])
-
-    #ax.set_box_aspect(1)
-    ax.set_xlabel(r"$k_x [\mathrm{nm}^{-1}]$",labelpad=10)
-    ax.set_ylabel(r"$k_y [\mathrm{nm}^{-1}]$",labelpad=5)
-
-    plt.subplots_adjust(left=0.15, bottom=0.1, right=0.95, top=0.97, wspace=0.2, hspace=0.25)
-
-    plt.savefig(figname,dpi=150)
-    plt.close()   
+    return
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-input', required=True)
-    parser.add_argument('-task', required=True)
-    parser.add_argument('-tstep', required=False)
+    parser.add_argument('-tasks', required=True)
+    parser.add_argument('-tstep', required=True)
     parser.add_argument('-output', required=False)
 
     args = parser.parse_args()
@@ -326,32 +239,51 @@ if __name__=="__main__":
         print("Input file does not exist!")
         sys.exit(1)
 
+    tasks_str = args.tasks
+    tasks = args.tasks.split(",")
+    ntasks = len(tasks)
+
+    if ntasks == 0:
+        print("Tasks are not specified!")
+        sys.exit(1)
+
     #create figures directory
     fig_dir = "figures"
     os.makedirs(fig_dir,exist_ok=True)
 
     fig_fname = args.output
-    tstep = 0
-
-    if args.tstep:
-        tstep = int(args.tstep)
+    tstep = int(args.tstep)
 
     if fig_fname==None:
-        fig_fname = "fig_%s_%s.png" % (args.task,'{:06}'.format(tstep))
+        fig_fname = "fig_%s_%s.png" % (tasks_str,'{:06}'.format(tstep))
         fig_fname = os.path.join(fig_dir,fig_fname)
 
-    if args.task=="prfile":
-        plot_prfile(params,"test.pdf")
-    elif args.task=="prfile3D":
-        plot_plotly(params,"test.pdf")
-    elif args.task=="kspace":
-        plot_kspace(params,tstep,fig_fname)
-    elif args.task=="rspace":
-        plot_rspace(params,tstep,fig_fname)
-    elif args.task=="rspace3D":
-        plot3D_rspace(params)
-    elif args.task=="rspace_pulse":
-        plot_rspace_pulse(params,tstep,fig_fname)
-    else:
-        raise Exception("Requested task is not available!")
+    #create figure and required axes
+    width  = 10
+    height = 4.5 * ntasks
+
+    fig = plt.figure(figsize=(width,height))
+    subfigs = fig.subfigures(ntasks, 1)
+
+    for itask in range(ntasks):
+        task = tasks[itask]
+
+        if ntasks == 1:
+            subfig = subfigs
+        else:
+            subfig = subfigs[itask]
+
+        if task=="pulse":
+            plot_tfile(subfig,params,tstep,1)
+        elif task=="kspace":
+            plot_kspace(subfig,params,tstep)
+        elif task=="rspace":
+            plot_rspace(subfig,params,tstep)
+        else:
+            raise Exception("Requested task is not available!")
+
+    plt.subplots_adjust(left=0.15, bottom=0.1, right=0.95, top=0.97, wspace=0.2, hspace=0.5)
+
+    plt.savefig(fig_fname,dpi=150)
+    plt.close()
     
