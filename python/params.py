@@ -18,8 +18,9 @@ class InputParams:
         config.read(fname)
 
         #read model parameters
-        self.layers = config['system']['layers']
-        self.nlayers = sum(self.layers.count(st) for st in ['A','B','C'])
+        self.model = config['system']['model']
+        self.layers = config['system']['layers'].split(",")
+        self.nlayers = len(self.layers)
 
         self.d = float(config['system']['d'])/au2A
         self.a = float(config['system']['a'])/au2A

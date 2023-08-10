@@ -7,6 +7,7 @@ import numpy as np
 import params
 
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 
 plt.rcParams.update({'font.size': 16})
 plt.rcParams["mathtext.fontset"] = "cm"
@@ -37,6 +38,87 @@ def find_nearest_indx(array, value):
     idx = (np.abs(array - value)).argmin()
     return idx
 
+def integrate_multilayer(rho_xyz,params):
+    #integrated densities will be stored in this list
+    rhos_xy = []
+
+    zgrid_full = np.linspace(params.zmin,params.zmax,params.Nz)
+
+    #case of PH 1layer model (combine 1 layer data to form artificial multilayer)
+    if params.model == "hommelhoff":
+        #loop over layers
+        for il in range(params.nlayers):
+            #layer type
+            layer_str = params.layers[il]
+
+            sh = 0
+            if layer_str == 'A':
+                sh = 0
+            elif layer_str == 'B':
+                sh = 12 #params.a/np.sqrt(3.)
+            elif layer_str == 'C':
+                sh = 0 #2.*params.a/np.sqrt(3.)
+            else:
+                raise Exception("Unrecognized layer stacking!")
+
+            rho_xy = np.transpose(np.trapz(rho_xyz,x=zgrid_full,axis=2))
+
+            #shift the 2D array in x and y directions
+            rho_xy_sh_x  = np.zeros((params.Nx,params.Ny),dtype=float)
+            rho_xy_sh_xy = np.zeros((params.Nx,params.Ny),dtype=float)
+
+            if sh>0:
+                #the initial array has a form of ABCDEA where the values at the boundaries are identical
+                #we, therefore, create an array  CDEABC according to the specified shift
+                rho_xy_sh_x[:sh,:] = rho_xy[params.Nx-sh:,:]
+                rho_xy_sh_x[sh:,:] = rho_xy[1:params.Nx-sh+1,:]
+
+                rho_xy_sh_xy[:,:sh] = rho_xy_sh_x[:,params.Ny-sh:]
+                rho_xy_sh_xy[:,sh:] = rho_xy_sh_x[:,1:params.Ny-sh+1]
+            else:
+                rho_xy_sh_xy = rho_xy
+
+            rhos_xy.append(rho_xy_sh_xy)
+
+        #all-layers density contributions are sum over all layers
+        rho_xy_all = np.zeros((params.Nx,params.Ny),dtype=float)
+        for il in range(params.nlayers):
+            rho_xy_all += rhos_xy[il]
+            rhos_xy.append(rho_xy_all)
+
+    else: #real multilayer case
+        zz_indx = []
+
+        zvals = np.zeros(params.nlayers+1,dtype=float)
+        zvals[0] = params.zmin
+        zvals[-1] = params.zmax
+
+        zval = 0.5*params.d
+        for il in range(params.nlayers-1):
+            zvals[il+1] = zval
+            zval += params.d
+
+        for il in range(params.nlayers):
+            zindx_min = find_nearest_indx(zgrid_full,zvals[il])
+            zindx_max = find_nearest_indx(zgrid_full,zvals[il+1])
+
+            zz_indx.append([zindx_min,zindx_max])
+
+        zz_indx.append([0,params.Nz])
+        nrows = len(zz_indx)
+
+        for iz in range(len(zz_indx)):
+            izmin = zz_indx[iz][0]
+            izmax = zz_indx[iz][1]
+
+            zgrid = zgrid_full[izmin:izmax]
+
+            rho_xyz_iz = rho_xyz[:,:,izmin:izmax]
+            rho_xy = np.transpose(np.trapz(rho_xyz_iz,x=zgrid,axis=2))
+            rhos_xy.append(rho_xy)
+
+    return rhos_xy
+
 def plot_tfile(fig,params,tstep,col):
     axs = fig.add_subplot(111)
 
@@ -56,119 +138,72 @@ def plot_tfile(fig,params,tstep,col):
     axs.axvline(time,c='r',lw=3)
     axs.set_xlabel("Time [fs]",labelpad=10)
 
+    plt.subplots_adjust(left=0.12, bottom=0.2, right=0.93, top=0.9)
+
     return
 
-def plot_prfile(params,figname):
-    prdata = np.loadtxt(params.prfile_fname)
-
-    fig, axes = plt.subplots(figsize=(8,8),nrows=2,ncols=1)
-
-    for ist in range(2):
-        ax=axes[ist]
-
-        prdata_xyz = prdata[:,ist].reshape((params.Nx,params.Ny,params.Nz))
-        
-        zgrid = np.linspace(params.zmin,params.zmax,params.Nz)
-        prdata_xy = np.transpose(np.trapz(prdata_xyz,x=zgrid,axis=2))
-
-        zmin = 0.0
-        zmax = 0.22
-
-        levels = np.linspace(zmin,zmax,151)
-
-        plot2D_rspace(ax,params,prdata_xy,cm.jet,levels)
-
-        ax.set_box_aspect(1)
-        ax.set_xlabel(r"$x [\AA]$",labelpad=10)
-        ax.set_ylabel(r"$y [\AA]$",labelpad=5)
-
-        ax.set_xlim([params.xmin*au2A,params.xmax*au2A])
-        ax.set_ylim([params.ymin*au2A,params.ymax*au2A])
-
-    plt.subplots_adjust(left=0.15, bottom=0.1, right=0.8, top=0.97, wspace=0.2, hspace=0.25)
-
-    plt.savefig(figname,dpi=150)
-    plt.close()
-
-def plot_rspace(fig,params,tstep,layers=False):
-    #load data from prfile
-    prdata = np.loadtxt(params.prfile_fname)
-    prdata_xyz = prdata[:,0].reshape((params.Nx,params.Ny,params.Nz))
-
-    #load data from rhofile
-    rho_t_fname = params.rhofile_fname.replace("%it",'{:06}'.format(tstep))
-    rho_data = np.loadtxt(rho_t_fname)
-
-    #reshape densities to 3D arrays
-    rho_nocoh_xyz = rho_data[:,0].reshape((params.Nx,params.Ny,params.Nz))
-    rho_coh_xyz   = rho_data[:,1].reshape((params.Nx,params.Ny,params.Nz))
-    rho_tot_xyz   = rho_data[:,2].reshape((params.Nx,params.Ny,params.Nz))
-    
-    #densities for plotting
-    rhos = [rho_nocoh_xyz-prdata_xyz,
-            rho_coh_xyz,
-            rho_tot_xyz-prdata_xyz]
- 
+def plot_rspace(fig,params,rhos,col_names,zmode='auto',layers=True):
     #define number of columns and rows to plot
-    ncols = 3
-    col_names = ['intra','inter','total']
+    ncols = len(col_names)
 
     nrows = 1
-    row_names = []
-    if layers == True:
-        row_names = ['L{}'.format(row+1) for row in range(params.nlayers)]
-    row_names.append("T")
+    row_names = ["T"]
 
-    #create required z grids for multilayer plotting
-    zz_indx = []
-    
-    if layers == True:
-        if params.nlayers > 1:
-            zvals = np.zeros(params.nlayers+1,dtype=float)
-            zvals[0] = params.zmin
-            zvals[-1] = params.zmax
+    #integrated densities will be stored in this list
+    rhos_xy = []
 
-            zval = 0.5*params.d
-            for il in range(params.nlayers-1):
-                zvals[il+1] = zval
-                zval += params.d
-
-            for il in range(params.nlayers):
-                zindx_min = find_nearest_indx(zgrid_full,zvals[il])
-                zindx_max = find_nearest_indx(zgrid_full,zvals[il+1])
-
-                zz_indx.append([zindx_min,zindx_max])
-
-    #overall grid
-    zz_indx.append([0,params.Nz])
-
+    #integrated density over full z grid
     zgrid_full = np.linspace(params.zmin,params.zmax,params.Nz)
+    for icol in range(ncols):
+        rho_xyz = rhos[icol]
+        rho_xy = np.transpose(np.trapz(rho_xyz,x=zgrid_full,axis=2))
+        rhos_xy.append(rho_xy)
+
+    ### multilayer case ###
+    if layers == True and params.nlayers > 1:  
+        row_names = ['L{}'.format(row+1) for row in range(params.nlayers)] + row_names
+        nrows = len(row_names)
+
+        #we clear the integrated densties because in this case they are constructed in a different way
+        rhos_xy.clear()
+
+        rhos_xy_ = []
+        for ic in range(ncols):
+            rhos_xy_ic = integrate_multilayer(rhos[ic],params)
+            rhos_xy_.append(rhos_xy_ic)
+
+        for il in range(params.nlayers+1):
+            for ic in range(ncols):
+                rhos_xy.append(rhos_xy_[ic][il])
+
+    ### plotting ###
+    gs = gridspec.GridSpec(nrows, ncols, hspace=0.1, wspace=0.1, left=0.1, bottom=0.1, right=0.95, top=0.9)
 
     indx = 1 #plot index
-    for iz in range(len(zz_indx)):
-        izmin = zz_indx[iz][0]
-        izmax = zz_indx[iz][1]
+    for irow in range(nrows):
+        for icol in range(ncols):
+            rho_xy = rhos_xy[indx-1]
 
-        zgrid = zgrid_full[izmin:izmax]
-
-        #plot nocoh, coh, and total densities
-        for ip in range(ncols):
-            rho_xyz = rhos[ip][:,:,izmin:izmax]
-            rho_xy = np.transpose(np.trapz(rho_xyz,x=zgrid,axis=2))
-
+            Nz = 151
             zmin = rho_xy.min()
             zmax = rho_xy.max()
-            ZZ = max(abs(zmin),abs(zmax))
-            #ZZ = 0.01
 
-            levels = np.linspace(-ZZ,ZZ,151)
+            if zmode == 'minimax':
+                levels = np.linspace(zmin,zmax,Nz)
+            elif zmode == 'zabs':
+                ZZ = max(abs(zmin),abs(zmax))
+                levels = np.linspace(-ZZ,ZZ,Nz)
+            else:
+                zmin = zmode[0]
+                zmax = zmode[1]
+                levels = np.linspace(zmin,zmax,Nz)
 
-            ax = fig.add_subplot(nrows,ncols,indx)
+            ax = fig.add_subplot(gs[irow,icol])
 
-            if iz == 0:
-                ax.set_title(col_names[ip])
-            if ip == 0:
-                ax.set_ylabel(row_names[iz], rotation=0, size='large',labelpad=20)
+            if irow == 0:
+                ax.set_title(col_names[icol])
+            if icol == 0:
+                ax.set_ylabel(row_names[irow], rotation=0, size='large',labelpad=20)
 
             plot2D_rspace(ax,params,rho_xy,cm.seismic,levels)
 
@@ -179,7 +214,7 @@ def plot_rspace(fig,params,tstep,layers=False):
             ax.set_xlim([params.xmin*au2A,params.xmax*au2A])
             ax.set_ylim([params.ymin*au2A,params.ymax*au2A])
 
-            plot_coords(ax,params)
+            #plot_coords(ax,params)
 
             indx += 1
 
@@ -201,11 +236,8 @@ def plot_coords(ax,params):
                 ax.plot([xi,xj],[yi,yj],color='black')
     return
 
-def plot_kspace(fig,params,tstep):
+def plot_kspace(fig,params,tstep,ist):
     axs = fig.add_subplot(1,1,1)
-
-    Nst = 2*params.nlayers  #get number of states
-    ist = Nst-1             #state to plot
 
     dens_t_fname = params.densfile_fname.replace("%it",'{:06}'.format(tstep))
 
@@ -217,6 +249,8 @@ def plot_kspace(fig,params,tstep):
     axs.set_box_aspect(1)
     axs.set_xlabel(r"$k_x [\mathrm{nm}^{-1}]$",labelpad=10)
     axs.set_ylabel(r"$k_y [\mathrm{nm}^{-1}]$",labelpad=5)
+
+    plt.subplots_adjust(left=0.12, bottom=0.2, right=0.93, top=0.9)
 
     return
 
@@ -258,32 +292,88 @@ if __name__=="__main__":
         fig_fname = "fig_%s_%s.png" % (tasks_str,'{:06}'.format(tstep))
         fig_fname = os.path.join(fig_dir,fig_fname)
 
-    #create figure and required axes
-    width  = 10
-    height = 4.5 * ntasks
-
-    fig = plt.figure(figsize=(width,height))
-    subfigs = fig.subfigures(ntasks, 1)
+    #calculate figure parameters before plotting
+    fig_width  = 10
+    fig_height = 0
+    fig_hratios = np.ones(ntasks)
 
     for itask in range(ntasks):
         task = tasks[itask]
 
-        if ntasks == 1:
-            subfig = subfigs
+        if task=="pulse":
+            fig_height += 4
+            fig_hratios[itask] = 1
+        elif task=="kspace":
+            fig_height += 5
+            fig_hratios[itask] = 2
+        elif task=="rspace" or task=="prfile":
+            fig_hratios[itask] = params.nlayers + 1
+            fig_height += 4.0
+            if params.nlayers != 1:
+                fig_hratios[itask] += params.nlayers
+                fig_height += params.nlayers * 2.5
         else:
-            subfig = subfigs[itask]
+            raise Exception("Requested task is not available!")
+
+    #plotting
+    fig = plt.figure(figsize=(fig_width,fig_height))
+    GridSpec = gridspec.GridSpec(ntasks,1,fig,height_ratios=fig_hratios)
+
+    for itask in range(ntasks):
+        task = tasks[itask]
+
+        subfig = fig.add_subfigure(GridSpec[itask],frameon=False)
 
         if task=="pulse":
             plot_tfile(subfig,params,tstep,1)
         elif task=="kspace":
-            plot_kspace(subfig,params,tstep)
+            plot_kspace(subfig,params,tstep,1)
         elif task=="rspace":
-            plot_rspace(subfig,params,tstep)
+            #load data from prfile
+            prdata = np.loadtxt(params.prfile_fname)
+            prdata_xyz = prdata[:,0].reshape((params.Nx,params.Ny,params.Nz))
+
+            #load data from rhofile
+            rho_t_fname = params.rhofile_fname.replace("%it",'{:06}'.format(tstep))
+            rho_data = np.loadtxt(rho_t_fname)
+
+            #reshape densities to 3D arrays
+            rho_nocoh_xyz = rho_data[:,0].reshape((params.Nx,params.Ny,params.Nz))
+            rho_coh_xyz   = rho_data[:,1].reshape((params.Nx,params.Ny,params.Nz))
+            rho_tot_xyz   = rho_data[:,2].reshape((params.Nx,params.Ny,params.Nz))
+            
+            #densities for plotting
+            rhos = [rho_nocoh_xyz-prdata_xyz,
+                    rho_coh_xyz,
+                    rho_tot_xyz-prdata_xyz]
+
+            #column names
+            col_names = ['intra','inter','total']
+
+            plot_rspace(subfig,params,rhos,col_names,zmode='zabs')
+        elif task=="prfile":
+            rhos = []
+            col_names = []
+
+            #load data from prfile
+            prdata = np.loadtxt(params.prfile_fname)
+
+            Nst = 2*params.nlayers
+            layers = True
+
+            if params.model == "hommelhoff":
+                Nst = 2
+                layers = False
+
+            for ist in range(Nst):
+                prdata_xyz = prdata[:,ist].reshape((params.Nx,params.Ny,params.Nz))
+                rhos.append(prdata_xyz)
+                col_names.append('S{}'.format(ist+1))
+
+            plot_rspace(subfig,params,rhos,col_names,'minimax',layers)
         else:
             raise Exception("Requested task is not available!")
 
-    plt.subplots_adjust(left=0.15, bottom=0.1, right=0.95, top=0.97, wspace=0.2, hspace=0.5)
-
-    plt.savefig(fig_fname,dpi=150)
+    plt.savefig(fig_fname,dpi=150,transparent=True)
     plt.close()
     
