@@ -102,7 +102,7 @@ def integrate_multilayer(rho_xyz,params):
             zindx_min = find_nearest_indx(zgrid_full,zvals[il])
             zindx_max = find_nearest_indx(zgrid_full,zvals[il+1])
 
-            zz_indx.append([zindx_min,zindx_max])
+            zz_indx.append([zindx_min,zindx_max+1])
 
         zz_indx.append([0,params.Nz])
         nrows = len(zz_indx)
@@ -131,9 +131,9 @@ def plot_tfile(fig,params,tstep,col):
     axs.set_xlim([params.tmin*au2fs,params.tmax*au2fs])
 
     time = params.tgrid[tstep-1]*au2fs
-    time_str = "Time: %s fs" % ('{:6.2f}'.format(time))
+    time_str = "Time: %s fs" % ('{:5.2f}'.format(time))
 
-    axs.text(0.7,0.9,time_str,transform=plt.gcf().transFigure)
+    axs.text(0.75,0.85,time_str,family='monospace',transform=axs.transAxes)
 
     axs.axvline(time,c='r',lw=3)
     axs.set_xlabel("Time [fs]",labelpad=10)
@@ -177,7 +177,7 @@ def plot_rspace(fig,params,rhos,col_names,zmode='auto',layers=True):
                 rhos_xy.append(rhos_xy_[ic][il])
 
     ### plotting ###
-    gs = gridspec.GridSpec(nrows, ncols, hspace=0.1, wspace=0.1, left=0.1, bottom=0.1, right=0.95, top=0.9)
+    gs = gridspec.GridSpec(nrows, ncols, hspace=0.1, wspace=0.1, left=0.1, bottom=0.2, right=0.95, top=0.9)
 
     indx = 1 #plot index
     for irow in range(nrows):
@@ -250,7 +250,7 @@ def plot_kspace(fig,params,tstep,ist):
     axs.set_xlabel(r"$k_x [\mathrm{nm}^{-1}]$",labelpad=10)
     axs.set_ylabel(r"$k_y [\mathrm{nm}^{-1}]$",labelpad=5)
 
-    plt.subplots_adjust(left=0.12, bottom=0.2, right=0.93, top=0.9)
+    plt.subplots_adjust(left=0.12, bottom=0.15, right=0.93, top=0.9)
 
     return
 
@@ -307,11 +307,11 @@ if __name__=="__main__":
             fig_height += 5
             fig_hratios[itask] = 2
         elif task=="rspace" or task=="prfile":
-            fig_hratios[itask] = params.nlayers + 1
+            fig_hratios[itask] = 1
             fig_height += 4.0
             if params.nlayers != 1:
                 fig_hratios[itask] += params.nlayers
-                fig_height += params.nlayers * 2.5
+                fig_height += params.nlayers * 2.0
         else:
             raise Exception("Requested task is not available!")
 

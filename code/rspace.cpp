@@ -301,10 +301,10 @@ int main(int argc, char** argv){
                                 size_t indx_ikxikyist=indx_kxkyst({ikx,iky,ist});
                                 size_t indx_ikxikyjst=indx_kxkyst({ikx,iky,jst});
                                 Psi+=vecs[indx_ikxikyist][jst]*BPhis[jst];
-                                dxPsi+=vecs[indx_ikxikyist][jst]*dxBPhis[jst];
+                                //dxPsi+=vecs[indx_ikxikyist][jst]*dxBPhis[jst];
                             }
                             Psis[ist]=Psi;
-                            dxPsis[ist]=dxPsi;
+                            //dxPsis[ist]=dxPsi;
                         }
 
                         //compute non-coherent rho
@@ -320,17 +320,17 @@ int main(int argc, char** argv){
                         for(size_t ist=0; ist<Nst; ist++){
                             for(size_t jst=ist+1; jst<Nst; jst++){
                                 double re=coh_re_data[indx](ikx,iky);
-                                double im=-coh_im_data[indx](ikx,iky);
+                                double im=coh_im_data[indx](ikx,iky);
                                 
-                                //complex_t coh=re+I*im;
+                                complex_t coh=re-I*im;
 
                                 complex_t psi_istjst=std::conj(Psis[ist])*Psis[jst];
                                 double Pre=std::real(psi_istjst);
                                 double Pim=std::imag(psi_istjst);
 
-                                //rho_coh+=2.*std::real(coh*psi_istjst);
+                                rho_coh+=2.*std::real(coh*psi_istjst);
 
-                                rho_coh+=2.*(Pre+Pim);
+                                //rho_coh+=2.*(Pre+Pim);
 
                                 indx++;
                             }
