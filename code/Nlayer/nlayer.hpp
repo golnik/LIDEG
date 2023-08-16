@@ -121,7 +121,7 @@ public:
     _eps(eps),_g(g),_s(s),
     _Td(Td),
     _Ex{Ex},_Ey{Ey}{
-        size_t Nst=2*N;
+        /*size_t Nst=2*N;
 
         //fit energies and dipoles by splines
         size_t Nkx=kxygrid->size1();
@@ -185,17 +185,21 @@ public:
 
                 indx++;
             }            
-        }
+        }*/
     }
 
     double get_energy(const double& kx, const double& ky, const size_t& ist) const override{
-        return this->spl_evaluate(*e_spl[ist],kx,ky);
+        Evector_t evals;
+        matrix_t evecs;
+        this->solve(evals,evecs,kx,ky);
+        return evals[ist];
+        //return this->spl_evaluate(*e_spl[ist],kx,ky);
     }
 
     double get_dipole(const double& kx, const double& ky, const size_t& ist, const size_t& jst, const size_t& dir) const override{
         size_t Nst=2*_N;
 
-        /*matrix_t Dx=matrix_t::Zero(Nst,Nst);
+        matrix_t Dx=matrix_t::Zero(Nst,Nst);
         matrix_t Dy=matrix_t::Zero(Nst,Nst);
         this->computeDipole(Dx,Dy,kx,ky);
 
@@ -207,9 +211,9 @@ public:
             res=std::real(Dy(ist,jst));
         }
 
-        return res;*/
+        return res;
 
-        size_t indx=(*mapping)(ist,jst);
+        /*size_t indx=(*mapping)(ist,jst);
 
         double res=0.;
         if(ist!=jst){
@@ -220,7 +224,7 @@ public:
                 res=this->spl_evaluate(*d_spl_y[indx],kx,ky);
             }
         }
-        return res;
+        return res;*/
     }
 
     double get_energy_grad(const double& kx, const double& ky, const size_t& ist, const size_t& dir) const override{
@@ -266,11 +270,67 @@ public:
 
     void propagate(const state_type& rho, state_type& drhodt, const double t,
                 const double& kx_t, const double& ky_t) const override{
-        size_t Nst=2*_N;
+        //size_t Nst=2*_N;
+        size_t Nst=this->nstates();
+
+        Evector_t evals;
+        matrix_t evecs;
+        matrix_t Dx=matrix_t::Zero(Nst,Nst);
+        matrix_t Dy=matrix_t::Zero(Nst,Nst);
+
+        this->solve(evals,evecs,kx_t,ky_t);
+
+        matrix_t H=matrix_t::Zero(Nst,Nst);
+        matrix_t S=matrix_t::Zero(Nst,Nst);
+
+        this->compute_matrices(H,S,kx_t,ky_t);
+
+        matrix_t dH_dx=matrix_t::Zero(Nst,Nst);
+        matrix_t dS_dx=matrix_t::Zero(Nst,Nst);
+        matrix_t dH_dy=matrix_t::Zero(Nst,Nst);
+        matrix_t dS_dy=matrix_t::Zero(Nst,Nst);
+
+        this->compute_derivatives(dH_dx,dS_dx,kx_t,ky_t,0);
+        this->compute_derivatives(dH_dy,dS_dy,kx_t,ky_t,1);
+
+        matrix_t X=S.inverse()*dH_dx;
+        matrix_t Y=S.inverse()*dH_dy;
+
+        for(size_t ist=0; ist<Nst; ist++){
+            for(size_t jst=ist+1; jst<Nst; jst++){
+                double ei=evals(ist);
+                double ej=evals(jst);
+
+                complex_t dip_x=0.;
+                complex_t dip_y=0.;
+
+                if(abs(ei-ej)>1.e-10){
+                    auto veci=evecs.col(ist);
+                    auto vecj=evecs.col(jst);
+
+                    if(std::real(veci(0))<0){
+                        veci*=-1;
+                    }
+
+                    if(std::real(vecj(0))<0){
+                        vecj*=-1;
+                    }
+
+                    dip_x=I*veci.dot(X*vecj)/(ei-ej);
+                    dip_y=I*veci.dot(Y*vecj)/(ei-ej);
+                }
+
+                Dx(ist,jst)=dip_x;
+                Dx(jst,ist)=std::conj(dip_x);
+
+                Dy(ist,jst)=dip_y;
+                Dy(jst,ist)=std::conj(dip_y);
+            }
+        }
 
         std::vector<double> E(Nst);
         for(size_t ist=0; ist<Nst; ist++){
-            E[ist]=this->get_energy(kx_t,ky_t,ist);
+            E[ist]=evals(ist);//this->get_energy(kx_t,ky_t,ist);
         }
 
         matrix<complex_t> d_x(Nst,Nst);
@@ -285,8 +345,8 @@ public:
 
         for(size_t ist=0; ist<Nst; ist++){
             for(size_t jst=ist+1; jst<Nst; jst++){
-                double dx=this->get_dipole(kx_t,ky_t,ist,jst,0);
-                double dy=this->get_dipole(kx_t,ky_t,ist,jst,1);
+                double dx=std::real(Dx(ist,jst));//this->get_dipole(kx_t,ky_t,ist,jst,0);
+                double dy=std::real(Dy(ist,jst));//this->get_dipole(kx_t,ky_t,ist,jst,1);
 
                 d_x(ist,jst)=dx;
                 d_x(jst,ist)=dx;
@@ -489,12 +549,12 @@ private:
         return;
     }
 
-    double spl_evaluate(const SPLINTER::BSpline& spl, const double& kx, const double& ky) const{
+    /*double spl_evaluate(const SPLINTER::BSpline& spl, const double& kx, const double& ky) const{
         SPLINTER::DenseVector kxky(2);
         kxky(0)=kx;
         kxky(1)=ky;
         return spl.eval(kxky);
-    }
+    }*/
 
     HexagonalTBModel* _tbm;
     size_t _N;
@@ -507,9 +567,9 @@ private:
     ExternalField* _Ex;
     ExternalField* _Ey;
 
-    std::vector<std::shared_ptr<SPLINTER::BSpline>> e_spl;
+    /*std::vector<std::shared_ptr<SPLINTER::BSpline>> e_spl;
     std::vector<std::shared_ptr<SPLINTER::BSpline>> d_spl_x;
     std::vector<std::shared_ptr<SPLINTER::BSpline>> d_spl_y;
 
-    Eigen::MatrixXi* mapping;
+    Eigen::MatrixXi* mapping;*/
 };
