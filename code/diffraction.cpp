@@ -217,7 +217,7 @@ int main(int argc, char** argv){
                         auto n=spot[1];
 
                         //integrate in xy coordinates
-                        auto int_xy=[m,n,O,a,b,&xygrid,dens_xy,&indx_xy](const size_t& ix, const size_t& iy){
+                        auto int_xy=[m,n,O,a,b,&xygrid,dens_xy,&indx_xy,&params](const size_t& ix, const size_t& iy){
                             double x=(*xygrid)(ix,iy)[0];
                             double y=(*xygrid)(ix,iy)[1];
                             
@@ -225,9 +225,11 @@ int main(int argc, char** argv){
 
                             double phi=0.;
 
-                            auto H=O+m*a+n*b;
-                            double H_r=H[0]*x+H[1]*y;
-                            std::complex<double> PW=exp(-I*(H_r-phi));
+                            //auto H=O+m*a+n*b;
+                            //double H_r=H[0]*x+H[1]*y;
+                            //std::complex<double> PW=exp(-I*(H_r-phi));
+
+                            std::complex<double> PW=exp(I*2.*M_PI/params.a*(1./sqrt(3.)*(m+n)*x+(m-n)*y));
 
                             return dens_xy[indx_ixiy]*PW;
                         };
