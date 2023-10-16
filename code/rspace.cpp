@@ -228,8 +228,9 @@ int main(int argc, char** argv){
             AtomsSet setA=GenerateGraphenePattern(pz,params.a,params.Nclx,params.Ncly,x,0.,z);
             AtomsSet setB=GenerateGraphenePattern(pz,params.a,params.Nclx,params.Ncly,x+params.a/sqrt(3.),0.,z);
 
-            setA.compute_on_grid(kxygrid);
-            setB.compute_on_grid(kxygrid);
+            //should be the states with the A field shift
+            setA.compute_on_grid(Akxygrid);
+            setB.compute_on_grid(Akxygrid);
             
             graphene.add_atomsset(setA);
             graphene.add_atomsset(setB);
@@ -361,7 +362,8 @@ int main(int argc, char** argv){
                     integrator_kxky->trapz(func,res);
                     res*=2./SBZ;//normalize for area of the BZ
 
-                    size_t indx_ixiyiz=indx_xyz({ix,iy,iz});
+                    //Sock-shoes property, who writen last , who read first
+                    size_t indx_ixiyiz=indx_xyz({iz,iy,ix});
                     Psi[indx_ixiyiz]=res(0);
 
                     //write data to file
@@ -380,7 +382,7 @@ int main(int argc, char** argv){
         std::vector<double> res_xy(params.Nz);
         for(size_t iz=0; iz<zgrid->size(); iz++){
             auto int_xy=[iz,&Psi,&indx_xyz](const size_t& ix, const size_t& iy){
-                size_t indx_ixiyiz=indx_xyz({ix,iy,iz});
+                size_t indx_ixiyiz=indx_xyz({iz,iy,ix});
                 return Psi[indx_ixiyiz];
             };
             double res=0.;
