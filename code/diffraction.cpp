@@ -171,6 +171,10 @@ int main(int argc, char** argv){
             *stream<<std::endl;
         }
 
+        // initial data (before laser)
+        std::vector<double> data0(nspots);
+        std::vector<double> avdata0(nzones);
+
         //loop over time steps
         for(size_t it=0; it<params.Nt; it++){
             //read real space data
@@ -196,7 +200,7 @@ int main(int argc, char** argv){
                         double res=0;
                         integrator_z->trapz(
                             [ix,iy,&dens_xyz,&indx_xyz](const size_t& iz){
-                                size_t indx_ixiyiz=indx_xyz({ix,iy,iz});
+                                size_t indx_ixiyiz=indx_xyz({iz,iy,ix});
                                 return dens_xyz[indx_ixiyiz];
                             },res);
                         size_t indx_ixiy=indx_xy({ix,iy});
@@ -229,9 +233,19 @@ int main(int argc, char** argv){
                             //double H_r=H[0]*x+H[1]*y;
                             //std::complex<double> PW=exp(-I*(H_r-phi));
 
-                            std::complex<double> PW=exp(I*2.*M_PI/params.a*(1./sqrt(3.)*(m+n)*x+(m-n)*y));
+                            //std::complex<double> PW=exp(I*2.*M_PI/params.a*(1./sqrt(3.)*(m+n)*x+(m-n)*y));
+                            
+                            // G     = m * b1 + n * b2;
+                            // r     = l * a1 + h * a2;
+                            // G * r = 2 * pi * (m * l + n * h)
+                            std::complex<double> PWx = exp(I * 2. * M_PI * m * (double(ix) / (params.Nx - 1)));
+                            std::complex<double> PWy = exp(I * 2. * M_PI * n * (double(iy) / (params.Ny - 1)));
+                            std::complex<double> PW = PWx * PWy / 2.;
 
-                            return dens_xy[indx_ixiy]*PW;
+                            // Jacbobi det for change the integral variable 
+                            // double Jacboi = 1/2;
+
+                            return dens_xy[indx_ixiy] * PW;
                         };
 
                         std::complex<double> res=0.;
@@ -239,6 +253,16 @@ int main(int argc, char** argv){
 
                         data[ispot]=std::abs(res);
                         avdata[izone]+=std::abs(res);
+
+                        if (it == 0)
+                        {
+                            data0[ispot] = data[ispot];
+                            avdata0[izone] = avdata[izone];
+                        }
+                        
+                        // change of diffarction
+                        // data[ispot] = data0[ispot] - data[ispot];
+                        // avdata[izone] = avdata0[izone] - avdata[izone];
 
                         ispot++;
                     }
