@@ -134,11 +134,18 @@ int main(int argc, char** argv){
             }
         }
 
+        // conductivity (numbering of columns should be modified)
+        tfile_out << std::setw(20) << "Re{sig}(14)";
+        tfile_out << std::setw(20) << "Im{sig}(15)";
+        tfile_out << std::setw(20) << "Abs{sig}(16)";
+
         tfile_out<<std::endl;
 
         std::vector<matrix_t> dens_data(Nstates);
         std::vector<matrix_t> coh_re_data(Nstates*(Nstates-1)/2);
         std::vector<matrix_t> coh_im_data(Nstates*(Nstates-1)/2);
+        // store df/dk
+        std::vector<matrix_t> df_dk(Nstates);
 
         std::vector<double> pops(Nstates);
         std::vector<complex_t> cohs(Nstates*(Nstates-1)/2);
@@ -168,6 +175,20 @@ int main(int argc, char** argv){
                     indx++;
                 }
             }
+
+            // read and save df/dk
+            for (size_t ist = 0; ist < Nstates; ist++)
+            {
+                df_dk[ist] = read_2D_from_file<matrix_t>(dens_t_fname, col, params.Nkx, params.Nky);
+                col++;
+            }
+            double Nk = params.Nkx;
+
+            /////////////////////////
+
+            /// Calculations
+
+            /////////////////////////
 
             //integrate band populations
             for(size_t ist=0; ist<Nstates; ist++){
@@ -274,6 +295,117 @@ int main(int argc, char** argv){
                 );
             }
 
+            ////////////////
+
+            /// Conducutivity
+
+            ////////////////
+
+            std::complex<double> sigma[4] = {0., 0., 0., 0.};
+            for (int dir = 0; dir < 1; dir++)
+            {
+                integrator->trapz(
+                    [coh_re_data, coh_im_data, dens_data, df_dk, Nk,
+                     kxygrid,
+                     time,
+                     Afield_x, Afield_y,
+                     gm,
+                     dir, Nstates](const size_t &ikx, const size_t &iky)
+                    {
+                        double kx0 = (*kxygrid)(ikx, iky)[0];
+                        double ky0 = (*kxygrid)(ikx, iky)[1];
+                        double kxt = kx0 + (*Afield_x)(time);
+                        double kyt = ky0 + (*Afield_y)(time);
+
+/*                         std::complex<double> rho10 = coh_re_data[0](ikx, iky) - I * coh_im_data[0](ikx, iky);
+                        std::complex<double> rho01 = coh_re_data[0](ikx, iky) + I * coh_im_data[0](ikx, iky);
+                        double rho00 = dens_data[0](ikx, iky);
+                        double rho11 = dens_data[1](ikx, iky);
+
+                        std::complex<double> rho[2][2];
+                        rho[0][0] = dens_data[0](ikx, iky);
+                        rho[1][1] = dens_data[1](ikx, iky);
+                        rho[1][0] = coh_re_data[0](ikx, iky) + I * coh_im_data[0](ikx, iky);
+                        rho[0][1] = coh_re_data[0](ikx, iky) - I * coh_im_data[0](ikx, iky); */
+
+                        double omega = 0;
+                        double Eta = 1e-2;
+                        std::complex<double> diag_res = 0.;
+/*                         std::complex<double> total_res_1 = 0.;
+                        std::complex<double> total_res_2 = 0.;
+                        std::complex<double> result = 0.; */
+
+                        std::complex<double> J[2][2];
+                        std::complex<double> J_corr[2][2];
+
+                        for (size_t m = 0; m < Nstates; m++)
+                        {
+                            for (size_t n = 0; n < Nstates; n++)
+                            {
+                                if (m == n)
+                                {
+                                    J[m][n] = gm->get_energy_grad(kxt, kyt, m, dir);
+                                }
+                                else if (m != n)
+                                {
+                                    J[m][n] = (gm->get_energy(kxt, kyt, m) - gm->get_energy(kxt, kyt, n)) * gm->get_dipole(kxt, kyt, m, n, 0);
+                                }
+                            }
+                        }
+
+                        //// Diag terms
+
+                        for (size_t m = 0; m < Nstates; m++)
+                        {
+                            for (size_t n = 0; n < Nstates; n++)
+                            {
+                                if (m == n)
+                                {
+                                    // double kBT = 0.02659;
+                                    // double anltic_dfde = -(exp(gm->get_energy(kxt, kyt, m)) / kBT) /
+                                    //                      ((pow(1 + exp(gm->get_energy(kxt, kyt, m)) / kBT, 2.0)) * kBT);
+
+                                    double df_de = df_dk[m](ikx, iky) / gm->get_energy_grad(kxt, kyt, m, dir);
+
+/*                                     if (ikx == Nk && m == 1)
+                                    {
+                                        df_de = df_dk[m](Nk, iky) / gm->get_energy_grad(kxt, kyt, m, dir);
+                                    }
+                                    else if (ikx == Nk && m == 0)
+                                    {
+                                        df_de = df_dk[m](Nk, iky) / gm->get_energy_grad(kxt, kyt, m, dir);                                        
+                                    } */
+
+                                    if (gm->get_energy_grad(kxt, kyt, m, dir) == 0)
+                                    {
+                                        df_de = 0;
+                                    }
+
+                                    // df_de = 0; //for inter band conductivity
+
+                                    diag_res += df_de * J[n][m] * J[m][n] /
+                                                ((gm->get_energy(kxt, kyt, n) - gm->get_energy(kxt, kyt, m) + omega + I * Eta));
+                                }
+                                else if (m != n)
+                                {
+                                    diag_res += (dens_data[m](ikx, iky) - dens_data[n](ikx, iky)) * J[n][m] * J[m][n] /
+                                                ((gm->get_energy(kxt, kyt, n) - gm->get_energy(kxt, kyt, m)) * (gm->get_energy(kxt, kyt, n) - gm->get_energy(kxt, kyt, m) + omega + I * Eta));
+                                }
+                            }
+                        }
+
+                        return diag_res / I;
+                    },
+                    sigma[0]);
+            }
+
+            ////////////////
+
+            /// write data
+
+            ////////////////
+
+
             tfile_out<<std::setw(20)<<time*au2fs;
             tfile_out<<std::setw(20)<<(*Afield_x)(time);
             tfile_out<<std::setw(20)<<(*Afield_y)(time);
@@ -297,6 +429,16 @@ int main(int argc, char** argv){
                     indx++;
                 }
             }
+
+            ////////////////
+
+            /// write conductivity
+
+            ////////////////
+
+            tfile_out << std::setw(20) << std::real(sigma[0]);
+            tfile_out << std::setw(20) << std::imag(sigma[0]);
+            tfile_out << std::setw(20) << std::abs(sigma[0]);
 
             tfile_out<<std::endl;
         }

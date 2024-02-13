@@ -144,7 +144,7 @@ int main(int argc, char** argv){
         grid_out.close();
 
         //prepare initial densities
-        matrix<state_type> rho_t_kxky(params.Nkx,params.Nky);
+/*         matrix<state_type> rho_t_kxky(params.Nkx,params.Nky);
         for(size_t ikx=0; ikx<params.Nkx; ikx++){
             for(size_t iky=0; iky<params.Nky; iky++){
                 rho_t_kxky(ikx,iky)=state_type(Nstates,Nstates);
@@ -154,6 +154,37 @@ int main(int argc, char** argv){
                     }
                 }
                 rho_t_kxky(ikx,iky)(0,0)=1.;
+            }
+        } */
+
+        matrix<state_type> rho_t_kxky(params.Nkx, params.Nky);
+        for (size_t ikx = 0; ikx < params.Nkx; ikx++)
+        {
+            for (size_t iky = 0; iky < params.Nky; iky++)
+            {
+                double kx0 = (*kxygrid)(ikx, iky)[0];
+                double ky0 = (*kxygrid)(ikx, iky)[1];
+                double KB = 8.6173e-5;
+                double T = 300;
+                double kBT = KB * T;
+                rho_t_kxky(ikx, iky) = state_type(Nstates, Nstates);
+                for (size_t i = 0; i < Nstates; i++)
+                {
+                    for (size_t j = 0; j < Nstates; j++)
+                    {
+                        if (i == j && i == 1)
+                        {
+                            double fc = 1 / (exp(gm->get_energy(kx0, ky0, i) / kBT) + 1);
+                            rho_t_kxky(ikx, iky)(i, j) = fc;
+                        }
+                        else
+                        {
+                            rho_t_kxky(ikx, iky)(i, j) = 0.;
+                        }
+                    }
+                }
+                double fv = 1 / (exp(gm->get_energy(kx0, ky0, 0) / kBT) + 1);
+                rho_t_kxky(ikx, iky)(0, 0) = fv;
             }
         }
 
@@ -227,6 +258,28 @@ int main(int argc, char** argv){
                     dens_t_out<<std::setw(20)<<coh_im_str;
                 }
             }
+
+            //dfdk for conductivity calculations
+            for (size_t ist = 0; ist < Nstates; ist++)
+            {
+                std::string pop_str = "dfdk[" + std::to_string(ist + 1) + "](" + std::to_string(col) + ")";
+                dens_t_out << std::setw(20) << pop_str;
+                col++;
+            }
+
+            for (size_t ist = 0; ist < Nstates; ist++)
+            {
+                for (size_t jst = ist + 1; jst < Nstates; jst++)
+                {
+                    std::string coh_re_str = "Re{dfdk[" + std::to_string(ist + 1) + "," + std::to_string(jst + 1) + "](" + std::to_string(col) + ")}";
+                    col++;
+                    std::string coh_im_str = "Im{dfdk[" + std::to_string(ist + 1) + "," + std::to_string(jst + 1) + "](" + std::to_string(col) + ")}";
+                    col++;
+
+                    dens_t_out << std::setw(20) << coh_re_str;
+                    dens_t_out << std::setw(20) << coh_im_str;
+                }
+            }
             dens_t_out<<std::endl;
 
             //write data
@@ -242,6 +295,43 @@ int main(int argc, char** argv){
                             double im=std::imag(rho_t_kxky(ikx,iky)(ist,jst));
                             dens_t_out<<std::setw(20)<<re;
                             dens_t_out<<std::setw(20)<<im;
+                        }
+                    }
+
+                    //df_dk output to data file
+                    //forward difference formula (modify to central difference to check the accuracy)
+                    if (ikx < params.Nkx - 1)
+                    {
+                        double df = std::abs(rho_t_kxky(ikx + 1, iky)(1, 1)) - std::abs(rho_t_kxky(ikx, iky)(1, 1));
+                        // double dk = (*kxygrid)(ikx + 1, iky)[0] - (*kxygrid)(ikx, iky)[0];
+                        double dk = 2. * M_PI / (sqrt(3.) * params.a * params.Nkx);
+                        dens_t_out << std::setw(20) << -df / dk;
+                        dens_t_out << std::setw(20) << df / dk;
+                    }
+                    else
+                    {
+                        dens_t_out << std::setw(20) << 1e-15;
+                        dens_t_out << std::setw(20) << 1e-15;
+                    }
+
+                    //off-diagonal elements of df/dk
+                    for (size_t ist = 0; ist < Nstates; ist++)
+                    {
+                        for (size_t jst = ist + 1; jst < Nstates; jst++)
+                        {
+                            if (ikx < params.Nkx - 1)
+                            {
+                                double dk = 2. * M_PI / (sqrt(3.) * params.a * params.Nkx);
+                                double dfre = std::real(rho_t_kxky(ikx + 1, iky)(ist, jst)) - std::real(rho_t_kxky(ikx, iky)(ist, jst));
+                                double dfim = std::imag(rho_t_kxky(ikx + 1, iky)(ist, jst)) - std::imag(rho_t_kxky(ikx, iky)(ist, jst));
+                                dens_t_out << std::setw(20) << dfre / dk;
+                                dens_t_out << std::setw(20) << dfim / dk;
+                            }
+                            else
+                            {
+                                dens_t_out << std::setw(20) << 1e-15;
+                                dens_t_out << std::setw(20) << 1e-15;
+                            }
                         }
                     }
 
