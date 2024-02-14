@@ -183,6 +183,7 @@ int main(int argc, char** argv){
                 col++;
             }
             double Nk = params.Nkx;
+            double Eta = params.Eta; // relaxing rate
 
             /////////////////////////
 
@@ -305,7 +306,7 @@ int main(int argc, char** argv){
             for (int dir = 0; dir < 1; dir++)
             {
                 integrator->trapz(
-                    [coh_re_data, coh_im_data, dens_data, df_dk, Nk,
+                    [coh_re_data, coh_im_data, dens_data, df_dk, Nk, Eta,
                      kxygrid,
                      time,
                      Afield_x, Afield_y,
@@ -329,7 +330,6 @@ int main(int argc, char** argv){
                         rho[0][1] = coh_re_data[0](ikx, iky) - I * coh_im_data[0](ikx, iky); */
 
                         double omega = 0;
-                        double Eta = 1e-2;
                         std::complex<double> diag_res = 0.;
 /*                         std::complex<double> total_res_1 = 0.;
                         std::complex<double> total_res_2 = 0.;

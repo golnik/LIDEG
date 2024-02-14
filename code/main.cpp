@@ -144,18 +144,57 @@ int main(int argc, char** argv){
         grid_out.close();
 
         //prepare initial densities
-/*         matrix<state_type> rho_t_kxky(params.Nkx,params.Nky);
-        for(size_t ikx=0; ikx<params.Nkx; ikx++){
-            for(size_t iky=0; iky<params.Nky; iky++){
-                rho_t_kxky(ikx,iky)=state_type(Nstates,Nstates);
-                for(size_t i=0; i<Nstates; i++){
-                    for(size_t j=0; j<Nstates; j++){
-                        rho_t_kxky(ikx,iky)(i,j)=0.;
+        if (params.T <= 0)
+        {
+            matrix<state_type> rho_t_kxky(params.Nkx, params.Nky);
+            for (size_t ikx = 0; ikx < params.Nkx; ikx++)
+            {
+                for (size_t iky = 0; iky < params.Nky; iky++)
+                {
+                    rho_t_kxky(ikx, iky) = state_type(Nstates, Nstates);
+                    for (size_t i = 0; i < Nstates; i++)
+                    {
+                        for (size_t j = 0; j < Nstates; j++)
+                        {
+                            rho_t_kxky(ikx, iky)(i, j) = 0.;
+                        }
                     }
+                    rho_t_kxky(ikx, iky)(0, 0) = 1.;
                 }
-                rho_t_kxky(ikx,iky)(0,0)=1.;
             }
-        } */
+        }
+        else
+        {
+            matrix<state_type> rho_t_kxky(params.Nkx, params.Nky);
+            for (size_t ikx = 0; ikx < params.Nkx; ikx++)
+            {
+                for (size_t iky = 0; iky < params.Nky; iky++)
+                {
+                    double kx0 = (*kxygrid)(ikx, iky)[0];
+                    double ky0 = (*kxygrid)(ikx, iky)[1];
+                    double kBT = KB * params.T;
+                    rho_t_kxky(ikx, iky) = state_type(Nstates, Nstates);
+                    for (size_t i = 0; i < Nstates; i++)
+                    {
+                        for (size_t j = 0; j < Nstates; j++)
+                        {
+                            if (i == j && i == 1)
+                            {
+                                double fc = 1 / (exp(gm->get_energy(kx0, ky0, i) / kBT) + 1);
+                                rho_t_kxky(ikx, iky)(i, j) = fc;
+                            }
+                            else
+                            {
+                                rho_t_kxky(ikx, iky)(i, j) = 0.;
+                            }
+                        }
+                    }
+                    double fv = 1 / (exp(gm->get_energy(kx0, ky0, 0) / kBT) + 1);
+                    rho_t_kxky(ikx, iky)(0, 0) = fv;
+                }
+            }
+        }
+
 
         matrix<state_type> rho_t_kxky(params.Nkx, params.Nky);
         for (size_t ikx = 0; ikx < params.Nkx; ikx++)
@@ -165,8 +204,7 @@ int main(int argc, char** argv){
                 double kx0 = (*kxygrid)(ikx, iky)[0];
                 double ky0 = (*kxygrid)(ikx, iky)[1];
                 double KB = 8.6173e-5;
-                double T = 300;
-                double kBT = KB * T;
+                double kBT = KB * params.T;
                 rho_t_kxky(ikx, iky) = state_type(Nstates, Nstates);
                 for (size_t i = 0; i < Nstates; i++)
                 {
@@ -297,6 +335,22 @@ int main(int argc, char** argv){
                             dens_t_out<<std::setw(20)<<im;
                         }
                     }
+
+                    /////////////////
+
+                    /// Cal df/dk
+
+                    /////////////////
+
+/*                     double kx0=(*kxygrid)(ikx,iky)[0];
+                    double ky0=(*kxygrid)(ikx,iky)[1];
+
+                    double kxt=kx0+(*Afield_x)(time);
+                    double kyt=ky0+(*Afield_y)(time);
+
+                    auto const kx_ad=make_fvar<double,1>(kxt);
+                    auto const autodiff=std::abs(rho_t_kxky(ikx, iky)(1, 1));
+                    double df_dkx = autodiff.derivative(1); */
 
                     //df_dk output to data file
                     //forward difference formula (modify to central difference to check the accuracy)

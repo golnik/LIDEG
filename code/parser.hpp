@@ -66,6 +66,8 @@ struct Parameters{
     std::vector<double> s;
     double Z;
     double Td;
+    double T;
+    double Eta;
 
     std::string outdir;
     std::string kgfile_fname;
@@ -155,8 +157,10 @@ struct Parameters{
         }
         out<<"\n";
 
-        out<<"\torbital charge: "<<Z<<std::endl;
-        out<<"\tcoherence time: "<<Td*au2fs<<", fs\n";
+        out<<"\torbital charge  : "<<Z<<std::endl;
+        out<<"\tcoherence time  : "<<Td*au2fs<<", fs\n";
+        out<<"\ttemperature     : "<<T<<", K\n";
+        out<<"\tcond decay rate : "<<Eta<<std::endl;
 
         return;
     }
@@ -334,6 +338,12 @@ public:
 
         std::string Td_str=ini.get("system").get("Td");
         _params.Td=std::stod(Td_str)/au2fs;
+
+        std::string T_str=ini.get("system").get("T");
+        _params.T=std::stod(T_str);       
+
+        std::string Eta_str=ini.get("system").get("Eta");
+        _params.Eta=std::stod(Eta_str);    
 
         //parse output
         _params.outdir=ini.get("output").get("outdir");
