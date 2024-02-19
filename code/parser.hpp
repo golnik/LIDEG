@@ -68,6 +68,7 @@ struct Parameters{
     double Td;
     double T;
     double Eta;
+    double omega;
 
     std::string outdir;
     std::string kgfile_fname;
@@ -161,6 +162,7 @@ struct Parameters{
         out<<"\tcoherence time  : "<<Td*au2fs<<", fs\n";
         out<<"\ttemperature     : "<<T<<", K\n";
         out<<"\tcond decay rate : "<<Eta<<std::endl;
+        out<<"\tcond decay rate : "<<omega<<", Hz\n";
 
         return;
     }
@@ -344,6 +346,9 @@ public:
 
         std::string Eta_str=ini.get("system").get("Eta");
         _params.Eta=std::stod(Eta_str);    
+
+        std::string omega_str=ini.get("system").get("Eta");
+        _params.omega=std::stod(omega_str);   
 
         //parse output
         _params.outdir=ini.get("output").get("outdir");

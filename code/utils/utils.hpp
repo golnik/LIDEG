@@ -15,6 +15,7 @@
 #define au2eV 27.211396641308
 #define au2fs 0.02418884254
 #define au2Vnm 5.14220826e+2
+#define Plank 4.135667696e-15
 #define KB 8.6173e-5
 
 typedef std::complex<double> complex_t;

@@ -203,7 +203,6 @@ int main(int argc, char** argv){
             {
                 double kx0 = (*kxygrid)(ikx, iky)[0];
                 double ky0 = (*kxygrid)(ikx, iky)[1];
-                double KB = 8.6173e-5;
                 double kBT = KB * params.T;
                 rho_t_kxky(ikx, iky) = state_type(Nstates, Nstates);
                 for (size_t i = 0; i < Nstates; i++)

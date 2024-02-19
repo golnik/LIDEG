@@ -184,6 +184,7 @@ int main(int argc, char** argv){
             }
             double Nk = params.Nkx;
             double Eta = params.Eta; // relaxing rate
+            double omega = params.omega; // test field frequency for conductivity
 
             /////////////////////////
 
@@ -306,7 +307,7 @@ int main(int argc, char** argv){
             for (int dir = 0; dir < 1; dir++)
             {
                 integrator->trapz(
-                    [coh_re_data, coh_im_data, dens_data, df_dk, Nk, Eta,
+                    [coh_re_data, coh_im_data, dens_data, df_dk, Nk, Eta, omega,
                      kxygrid,
                      time,
                      Afield_x, Afield_y,
@@ -329,7 +330,7 @@ int main(int argc, char** argv){
                         rho[1][0] = coh_re_data[0](ikx, iky) + I * coh_im_data[0](ikx, iky);
                         rho[0][1] = coh_re_data[0](ikx, iky) - I * coh_im_data[0](ikx, iky); */
 
-                        double omega = 0;
+                        double hbar_omega = Plank * omega;
                         std::complex<double> diag_res = 0.;
 /*                         std::complex<double> total_res_1 = 0.;
                         std::complex<double> total_res_2 = 0.;
@@ -389,7 +390,7 @@ int main(int argc, char** argv){
                                 else if (m != n)
                                 {
                                     diag_res += (dens_data[m](ikx, iky) - dens_data[n](ikx, iky)) * J[n][m] * J[m][n] /
-                                                ((gm->get_energy(kxt, kyt, n) - gm->get_energy(kxt, kyt, m)) * (gm->get_energy(kxt, kyt, n) - gm->get_energy(kxt, kyt, m) + omega + I * Eta));
+                                                ((gm->get_energy(kxt, kyt, n) - gm->get_energy(kxt, kyt, m)) * (gm->get_energy(kxt, kyt, n) - gm->get_energy(kxt, kyt, m) + hbar_omega + I * Eta));
                                 }
                             }
                         }
