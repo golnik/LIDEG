@@ -347,7 +347,7 @@ public:
         std::string Eta_str=ini.get("system").get("Eta");
         _params.Eta=std::stod(Eta_str);    
 
-        std::string omega_str=ini.get("system").get("Eta");
+        std::string omega_str=ini.get("system").get("omega");
         _params.omega=std::stod(omega_str);   
 
         //parse output
