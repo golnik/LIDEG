@@ -72,6 +72,7 @@ struct Parameters{
     std::string rgfile_fname;
     std::string tfile_fname;
     std::string densfile_fname;
+    std::string diffile_fname;    
     std::string rhofile_fname;
     std::string afile_fname;
     std::string pkfile_fname;
@@ -350,6 +351,9 @@ public:
 
         fs::path densfile_path(_params.outdir);
         _params.densfile_fname=(densfile_path/=ini.get("output").get("densfile")).c_str();
+
+        fs::path diffile_path(_params.outdir);
+        _params.diffile_fname=(diffile_path/=ini.get("output").get("diffile")).c_str();
 
         fs::path rhofile_path(_params.outdir);
         _params.rhofile_fname=(rhofile_path/=ini.get("output").get("rhofile")).c_str();
