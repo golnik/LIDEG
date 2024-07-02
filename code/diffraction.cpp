@@ -77,9 +77,9 @@ int main(int argc, char **argv)
         BZ_t BZ2{{2, 1}, {1, 2}, {-1, 1}, {-2, -1}, {-1, -2}, {1, -1}};
         BZ_t BZ3{{2, 0}, {2, 2}, {0, 2}, {-2, 0}, {-2, -2}, {0, -2}};
 
-        BZ_t BZt{{1, 0}};
+        BZ_t BZt{{1, 0}, {1,1}};
 
-        std::vector<BZ_t> zones{BZt};
+        std::vector<BZ_t> zones{BZ1};
 
         size_t nzones = zones.size();
         size_t nspots = 0;
@@ -275,7 +275,18 @@ int main(int argc, char **argv)
 
         /////////
 
-        std::vector<double> res(nspots, 0.);
+        diff_t_out << std::setw(25) << time * au2fs;
+
+        //////////
+
+        // The 1st col is time (indx 0)
+
+        // For each Bragg spot start from 2nd col (indx 1)
+
+        // indx [3n + 1] is intra
+        // indx [3n + 2] is inter
+        // indx [3n + 3] is total
+        // where n is nature number
 
         int t_indx = 0;
         size_t ispot = 0;
@@ -311,7 +322,9 @@ int main(int argc, char **argv)
                         std::cout << std::put_time(ltm, "%Y-%m-%d %H:%M:%S") << std::endl;
                     }
 
-                    std::complex<double> res_k = 0;
+                    // std::complex<double> res_k0 = 0.;
+
+                    std::vector<std::complex<double>> res_k(3, 0.);
 
                     for (size_t mst = 0; mst < Nst; mst++)
                     {
@@ -377,7 +390,6 @@ int main(int argc, char **argv)
                                 std::vector<complex_t> Q_xy_fn(N_xy);
                                 std::vector<complex_t> Q_xy_fm(N_xy);
 
-
                                 // we first integrate i z coordinate
 
                                 for (size_t ix = 0; ix < params.Nx; ix++)
@@ -434,29 +446,48 @@ int main(int argc, char **argv)
                                 integrator_xy->trapz([&Fourier_transform, &Q_xy_fn](const size_t &iy, const size_t &ix)
                                                      { return Fourier_transform(iy, ix, Q_xy_fn); }, F_S_fn);
 
-                                res_k = res_k + rho[mst][nst] * std::conj(F_S_fm) * F_S_fn;
+                                if (mst == nst)
+                                {
+                                    res_k[0] = res_k[0] + rho[mst][nst] * std::conj(F_S_fm) * F_S_fn;
+                                }
+
+                                if (mst != nst)
+                                {
+                                    res_k[1] = res_k[1] + rho[mst][nst] * std::conj(F_S_fm) * F_S_fn;
+                                }
+
+                                res_k[2] = res_k[2] + rho[mst][nst] * std::conj(F_S_fm) * F_S_fn;
                             }
                         }
                     }
 
-                    return std::real(res_k);
+                    vector<double> res(3, 0.);
+
+                    for (size_t i = 0; i < res_k.size(); i++)
+                    {
+                        res[i] = std::real(res_k[i]);
+                    }
+
+                    return res;
                 };
 
-                integrator_kxky->trapz(func, res[ispot]);
+                vector<double> res(3, 0.);
+
+                integrator_kxky->trapz(func, res);
+
+                res *= 2. / SBZ;
 
                 ispot++;
 
                 std::cout << "Ispot         : " << ispot << std::endl;
+
+                diff_t_out << std::setw(25) << res(0);
+
+                diff_t_out << std::setw(25) << res(1);
+
+                diff_t_out << std::setw(25) << res(2);
             }
         }
-
-        diff_t_out << std::setw(25) << time * au2fs;
-        for (size_t ist = 0; ist < nspots; ist++)
-        {
-            diff_t_out << std::setw(25) << res[ist] * 2. / SBZ;
-        }
-
-        // fourier transform
 
         ///////////
 
