@@ -71,7 +71,6 @@ int main(int argc, char **argv)
         std::cout << "Ax: " << Ax << " Ay: " << Ay << std::endl;
 
         /// prepare Black spots
-
         typedef std::vector<std::vector<double>> BZ_t;
         BZ_t BZ0{{0, 0}};
         BZ_t BZ1{{1, 0}, {1, 1}, {0, 1}, {-1, 0}, {-1, -1}, {0, -1}};
@@ -108,11 +107,9 @@ int main(int argc, char **argv)
             double b1y = 2. * M_PI / (params.a);
             double b2x = b1x;
             double b2y = -b1y;
-            dkx = (b1x - Ox) / params.Nkx;
 
             kxygrid = new UCellGrid2D(Ox, Oy, b1x, b1y, params.Nkx, b2x, b2y, params.Nky);
             Akxygrid = new UCellGrid2D(Ox + Ax, Oy + Ay, b1x, b1y, params.Nkx, b2x, b2y, params.Nky);
-            // Akxygrid = new UCellGrid2D(Ox, Oy, b1x, b1y, params.Nkx, b2x, b2y, params.Nky);
         }
         else
         {
@@ -169,16 +166,13 @@ int main(int argc, char **argv)
 
         /////////////////////////////////////
 
-        ///////////////////////////////////////////
-
         MultiIndex indx_xy({params.Nx, params.Ny});
         size_t N_xy = indx_xy.size();
 
         MultiIndex indx_kxkyst({params.Nkx, params.Nky, Nst});
         size_t N_kxkyst = indx_kxkyst.size();
 
-        MultiIndex indx_xyzst({params.Nx, params.Ny, params.Nz, Nst});
-        size_t N_xyzst = indx_xyzst.size();
+        /////////////////////////////////////////
 
         // compute eigenstates in reciprocal space
         std::vector<vector_t> vecs(N_kxkyst);
@@ -236,19 +230,12 @@ int main(int argc, char **argv)
             graphene.add_atomsset(setB);
         }
 
-        // print atom positions to file
-        /*std::ofstream atoms_out;
-        atoms_out.open(params.afile_fname);
-        graphene.print_atoms(atoms_out);
-        atoms_out.close();*/
-
         MultiIndex indx_xyz({params.Nx, params.Ny, params.Nz});
         size_t N_xyz = indx_xyz.size();
-        std::vector<complex_t> Psi_pl(N_xyz);
-        std::vector<complex_t> Psi_lm(N_xyz);
-        // std::vector<double> Psi(N_xyz);
+        std::vector<complex_t> Q_mf(N_xyz);
+        std::vector<complex_t> Q_fn(N_xyz);
 
-        // output real space data
+        // output diffraction data
         std::string diff_t_fname = params.diffile_fname;
         replace(diff_t_fname, "%it", boost::str(boost::format("%06d") % (tstep + 1)));
         std::ofstream diff_t_out(diff_t_fname);
@@ -257,14 +244,8 @@ int main(int argc, char **argv)
 
         diff_t_out << std::scientific;
         diff_t_out << std::setprecision(8);
-        // rho_t_out << "#" << std::setw(24) << "rho_nocoh";
-        // rho_t_out << std::setw(25) << "rho_coh";
-        // rho_t_out << std::setw(25) << "rho_total";
-        // rho_t_out << std::endl;
 
-        // 3D real-space densities for each mode k **************
-
-        // integrate in reciprocal space
+        // read kspace data
         std::vector<matrix_t> dens_data(Nst);
         std::vector<matrix_t> coh_re_data(Nst * (Nst - 1) / 2);
         std::vector<matrix_t> coh_im_data(Nst * (Nst - 1) / 2);
@@ -311,7 +292,7 @@ int main(int argc, char **argv)
                              &params,
                              nspots, nzones, &zones,
                              &indx_kxkyst, &xygrid, &zgrid, &indx_xyz, &indx_xy,
-                             &Psi_pl, &Psi_lm,
+                             &Q_mf, &Q_fn,
                              &integrator_z, &integrator_xy,
                              &vecs, &graphene](const size_t &ikx, const size_t &iky)
                 {
@@ -332,11 +313,11 @@ int main(int argc, char **argv)
 
                     std::complex<double> res_k = 0;
 
-                    for (size_t pst = 0; pst < Nst; pst++)
+                    for (size_t mst = 0; mst < Nst; mst++)
                     {
-                        for (size_t lst = 0; lst < Nst; lst++)
+                        for (size_t fst = 0; fst < Nst; fst++)
                         {
-                            for (size_t mst = 0; mst < Nst; mst++)
+                            for (size_t nst = 0; nst < Nst; nst++)
                             {
                                 std::complex<double> rho[2][2];
                                 rho[0][0] = dens_data[0](ikx, iky);
@@ -358,18 +339,14 @@ int main(int argc, char **argv)
 
                                             // compute Bloch functions
                                             std::vector<complex_t> BPhis(Nst);
-                                            std::vector<complex_t> dxBPhis(Nst);
-                                            std::vector<complex_t> dyBPhis(Nst);
+
                                             for (size_t ist = 0; ist < Nst; ist++)
                                             {
                                                 BPhis[ist] = graphene.PhiI(ist, x, y, z, ikx, iky);
-                                                // dxBPhis[ist]=graphene.dPhiI(ist,x,y,z,ikx,iky,0);
-                                                // dyBPhis[ist]=graphene.dPhiI(ist,x,y,z,ikx,iky,1);
                                             }
 
                                             // compute eigenstates
                                             std::vector<complex_t> Psis(Nst);
-                                            std::vector<complex_t> dxPsis(Nst);
                                             for (size_t ist = 0; ist < Nst; ist++)
                                             {
                                                 complex_t Psi = 0.;
@@ -379,27 +356,27 @@ int main(int argc, char **argv)
                                                     size_t indx_ikxikyist = indx_kxkyst({ikx, iky, ist});
                                                     size_t indx_ikxikyjst = indx_kxkyst({ikx, iky, jst});
                                                     Psi += vecs[indx_ikxikyist][jst] * BPhis[jst];
-                                                    // dxPsi+=vecs[indx_ikxikyist][jst]*dxBPhis[jst];
                                                 }
                                                 Psis[ist] = Psi;
-                                                // dxPsis[ist]=dxPsi;
                                             }
 
-                                            complex_t psi_pstlst = std::conj(Psis[pst]) * Psis[lst];
-                                            complex_t psi_lstmst = std::conj(Psis[lst]) * Psis[mst];
+                                            complex_t Q_mstfst = std::conj(Psis[mst]) * Psis[fst];
+                                            complex_t Q_fstnst = std::conj(Psis[fst]) * Psis[nst];
 
                                             // Sock-shoes property, who writen last , who read first
                                             size_t indx_ixiyiz = indx_xyz({iz, iy, ix});
 
-                                            Psi_pl[indx_ixiyiz] = psi_pstlst;
-                                            Psi_lm[indx_ixiyiz] = psi_lstmst;
+                                            Q_mf[indx_ixiyiz] = Q_mstfst;
+                                            Q_fn[indx_ixiyiz] = Q_fstnst;
                                             //
                                         }
                                     }
                                 }
 
-                                std::vector<complex_t> dens_xy_pl(N_xy);
-                                std::vector<complex_t> dens_xy_lm(N_xy);
+                                std::vector<complex_t> Q_xy_mf(N_xy);
+                                std::vector<complex_t> Q_xy_fn(N_xy);
+                                std::vector<complex_t> Q_xy_fm(N_xy);
+
 
                                 // we first integrate i z coordinate
 
@@ -407,83 +384,57 @@ int main(int argc, char **argv)
                                 {
                                     for (size_t iy = 0; iy < params.Ny; iy++)
                                     {
-                                        std::complex<double> res_xy_pl = 0.;
-                                        std::complex<double> res_xy_lm = 0.;
+                                        std::complex<double> res_xy_mf = 0.;
+                                        std::complex<double> res_xy_fn = 0.;
 
                                         integrator_z->trapz(
-                                            [ix, iy, &Psi_pl, &indx_xyz](const size_t &iz)
+                                            [ix, iy, &Q_mf, &indx_xyz](const size_t &iz)
                                             {
                                                 size_t indx_ixiyiz = indx_xyz({iz, iy, ix});
-                                                return Psi_pl[indx_ixiyiz];
+                                                return Q_mf[indx_ixiyiz];
                                             },
-                                            res_xy_pl);
+                                            res_xy_mf);
 
                                         integrator_z->trapz(
-                                            [ix, iy, &Psi_lm, &indx_xyz](const size_t &iz)
+                                            [ix, iy, &Q_fn, &indx_xyz](const size_t &iz)
                                             {
                                                 size_t indx_ixiyiz = indx_xyz({iz, iy, ix});
-                                                return Psi_lm[indx_ixiyiz];
+                                                return Q_fn[indx_ixiyiz];
                                             },
-                                            res_xy_lm);
+                                            res_xy_fn);
 
                                         size_t indx_ixiy = indx_xy({iy, ix});
-                                        dens_xy_pl[indx_ixiy] = res_xy_pl;
-                                        dens_xy_lm[indx_ixiy] = res_xy_lm;
+                                        Q_xy_mf[indx_ixiy] = res_xy_mf;
+                                        Q_xy_fn[indx_ixiy] = res_xy_fn;
+                                        Q_xy_fm[indx_ixiy] = std::conj(res_xy_mf);
                                     }
                                 }
 
                                 ///////////
 
-                                // Fourier Transform
-                                std::complex<double> res_k_pl = 0.;
-                                std::complex<double> res_k_lm = 0.;
+                                std::complex<double> F_S_fm = 0.;
+                                std::complex<double> F_S_fn = 0.;
 
-                                auto int_xy_pl = [m, n, &xygrid, dens_xy_pl, &indx_xy, &params](const size_t &iy, const size_t &ix)
+                                auto Fourier_transform = [m, n, &xygrid, &indx_xy, &params](const size_t &iy, const size_t &ix, const std::vector<complex_t> &Q_xy)
                                 {
-                                    double x = (*xygrid)(iy, ix)[0];
-                                    double y = (*xygrid)(iy, ix)[1];
+                                    double x = (*xygrid)(ix, iy)[0];
+                                    double y = (*xygrid)(ix, iy)[1];
 
-                                    size_t indx_ixiy = indx_xy({iy, ix});
+                                    size_t indx_ixiy = indx_xy({ix, iy});
 
-                                    double phi = 0.;
+                                    double Sr = 2. * M_PI / params.a * (1. / sqrt(3.) * (m + n) * x + (m - n) * y);
+                                    std::complex<double> PW = exp(I * Sr);
 
-                                    std::complex<double> PWx = exp(-I * 2. * M_PI * m * (double(ix) / (params.Nx - 1)));
-                                    std::complex<double> PWy = exp(-I * 2. * M_PI * n * (double(iy) / (params.Ny - 1)));
-                                    std::complex<double> PW = PWx * PWy / 2.;
-
-                                    // Jacbobi det for change the integral variable
-                                    // double Jacboi = 1/2;
-                                    // dens_xy[indx_ixiy] * PW
-
-                                    return dens_xy_pl[indx_ixiy] * PW;
+                                    return Q_xy[indx_ixiy] * PW;
                                 };
 
-                                integrator_xy->trapz(int_xy_pl, res_k_pl);
+                                integrator_xy->trapz([&Fourier_transform, &Q_xy_fm](const size_t &iy, const size_t &ix)
+                                                     { return Fourier_transform(iy, ix, Q_xy_fm); }, F_S_fm);
 
-                                // integrate in xy coordinates for t plus
-                                auto int_xy_lm = [m, n, &xygrid, dens_xy_lm, &indx_xy, &params](const size_t &iy, const size_t &ix)
-                                {
-                                    double x = (*xygrid)(iy, ix)[0];
-                                    double y = (*xygrid)(iy, ix)[1];
+                                integrator_xy->trapz([&Fourier_transform, &Q_xy_fn](const size_t &iy, const size_t &ix)
+                                                     { return Fourier_transform(iy, ix, Q_xy_fn); }, F_S_fn);
 
-                                    size_t indx_ixiy = indx_xy({iy, ix});
-
-                                    double phi = 0.;
-
-                                    std::complex<double> PWx = exp(I * 2. * M_PI * m * (double(ix) / (params.Nx - 1)));
-                                    std::complex<double> PWy = exp(I * 2. * M_PI * n * (double(iy) / (params.Ny - 1)));
-                                    std::complex<double> PW = PWx * PWy / 2.;
-
-                                    // Jacbobi det for change the integral variable
-                                    // double Jacboi = 1/2;
-                                    // dens_xy[indx_ixiy] * PW
-
-                                    return dens_xy_lm[indx_ixiy] * PW;
-                                };
-
-                                integrator_xy->trapz(int_xy_lm, res_k_lm);
-
-                                res_k = res_k + rho[mst][pst] * res_k_pl * res_k_lm;
+                                res_k = res_k + rho[mst][nst] * std::conj(F_S_fm) * F_S_fn;
                             }
                         }
                     }
@@ -495,7 +446,7 @@ int main(int argc, char **argv)
 
                 ispot++;
 
-                std::cout << "ispotttttttttttt: " << ispot << std::endl;
+                std::cout << "Ispot         : " << ispot << std::endl;
             }
         }
 
