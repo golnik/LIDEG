@@ -77,9 +77,9 @@ int main(int argc, char **argv)
         BZ_t BZ2{{2, 1}, {1, 2}, {-1, 1}, {-2, -1}, {-1, -2}, {1, -1}};
         BZ_t BZ3{{2, 0}, {2, 2}, {0, 2}, {-2, 0}, {-2, -2}, {0, -2}};
 
-        BZ_t BZt{{1, 0}, {1,1}};
+        BZ_t BZt{{1, 0}, {0,1}};
 
-        std::vector<BZ_t> zones{BZ1};
+        std::vector<BZ_t> zones{BZt};
 
         size_t nzones = zones.size();
         size_t nspots = 0;
@@ -432,7 +432,8 @@ int main(int argc, char **argv)
                                     double x = (*xygrid)(ix, iy)[0];
                                     double y = (*xygrid)(ix, iy)[1];
 
-                                    size_t indx_ixiy = indx_xy({ix, iy});
+                                    //size_t indx_ixiy = indx_xy({ix, iy});
+                                    size_t indx_ixiy = indx_xy({iy, ix});
 
                                     double Sr = 2. * M_PI / params.a * (1. / sqrt(3.) * (m + n) * x + (m - n) * y);
                                     std::complex<double> PW = exp(I * Sr);
@@ -446,16 +447,17 @@ int main(int argc, char **argv)
                                 integrator_xy->trapz([&Fourier_transform, &Q_xy_fn](const size_t &iy, const size_t &ix)
                                                      { return Fourier_transform(iy, ix, Q_xy_fn); }, F_S_fn);
 
-                                if (mst == nst)
+                                if (mst == nst) //intra band
                                 {
                                     res_k[0] = res_k[0] + rho[mst][nst] * std::conj(F_S_fm) * F_S_fn;
                                 }
 
-                                if (mst != nst)
+                                if (mst != nst) //inter band
                                 {
                                     res_k[1] = res_k[1] + rho[mst][nst] * std::conj(F_S_fm) * F_S_fn;
                                 }
 
+                                // total
                                 res_k[2] = res_k[2] + rho[mst][nst] * std::conj(F_S_fm) * F_S_fn;
                             }
                         }
