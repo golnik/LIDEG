@@ -195,36 +195,6 @@ int main(int argc, char** argv){
             }
         }
 
-
-        matrix<state_type> rho_t_kxky(params.Nkx, params.Nky);
-        for (size_t ikx = 0; ikx < params.Nkx; ikx++)
-        {
-            for (size_t iky = 0; iky < params.Nky; iky++)
-            {
-                double kx0 = (*kxygrid)(ikx, iky)[0];
-                double ky0 = (*kxygrid)(ikx, iky)[1];
-                double kBT = KB * params.T;
-                rho_t_kxky(ikx, iky) = state_type(Nstates, Nstates);
-                for (size_t i = 0; i < Nstates; i++)
-                {
-                    for (size_t j = 0; j < Nstates; j++)
-                    {
-                        if (i == j && i == 1)
-                        {
-                            double fc = 1 / (exp(gm->get_energy(kx0, ky0, i) / kBT) + 1);
-                            rho_t_kxky(ikx, iky)(i, j) = fc;
-                        }
-                        else
-                        {
-                            rho_t_kxky(ikx, iky)(i, j) = 0.;
-                        }
-                    }
-                }
-                double fv = 1 / (exp(gm->get_energy(kx0, ky0, 0) / kBT) + 1);
-                rho_t_kxky(ikx, iky)(0, 0) = fv;
-            }
-        }
-
         auto tgrid=create_grid(params.tmin,params.tmax,params.Nt);
         double dt=(params.tmax-params.tmin)/(params.Nt-1);
         for(size_t it=0; it<params.Nt; it++){//time loop
