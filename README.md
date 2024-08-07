@@ -1,4 +1,6 @@
-LIDEG: Laser-Induced Dynamics of Electrons in Graphene
+# LIDEG: Laser-Induced Dynamics of Electrons in Graphene
+
+LIDEG is a set of computer codes for simulating and visualizing laser-induced electron dynamics in neutral graphene.
 
 Please visit the wiki page for more details: https://github.com/golnik/LIDEG/wiki
 
