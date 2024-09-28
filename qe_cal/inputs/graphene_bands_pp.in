@@ -1,0 +1,6 @@
+&BANDS
+  prefix  = 'graphene'
+  outdir = '/tmp/mingrui_qe_cal_tmp',
+  filband = 'outputs/graphene_bands.dat',
+  lsym = .true.,
+/

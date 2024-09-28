@@ -1,0 +1,20 @@
+&INPUTPP
+    prefix = 'graphene',
+    outdir = '/tmp/mingrui_qe_cal_tmp',
+    filplot = './wf/graphene_real_wavefunction_more',
+    plot_num = 0,            ! Extract the real part of the wavefunction
+    kpoint(1)=1,
+    !kpoint(2)=10,
+    kband = 4               ! Select the 4th band
+/
+
+&PLOT
+    iflag = 2,  ! 2D plot
+    output_format = 7,  ! gnuplot format
+    fileout = 'graphene_wavefunction.dat',
+    nx = 100, ny = 100,  ! Grid points
+    e1(1) = 2, e1(2) = 0, e1(3) = 0.0,
+    e2(1) = 0, e2(2) = 2, e2(3) = 0.0,  ! Orthogonal to e1
+    x0(1) = 0.0,  x0(2) = 0.0, x0(3) = 0.0,
+    fileout = './wf/graphene_wavefunction.dat'
+/

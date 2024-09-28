@@ -1,0 +1,7 @@
+&PROJWFC
+  outdir = '/tmp/mingrui_qe_cal_tmp',
+  prefix = 'graphene',
+  filpdos = './eigens/graphene.pdos',
+/
+
+
