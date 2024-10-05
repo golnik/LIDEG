@@ -9,7 +9,10 @@ module add qe/7.0
 
 # export PATH=$PATH:"/home/mingruiyuan/software/test_qe/q-e-qe-7.2/build/bin"
 
-mkdir -p ./outputs
+
+rm ./coeff ./wf ./figures ./tmp ./outputs -rf
+
+mkdir ./coeff ./wf ./figures ./outputs
 
 mpirun -np 8 pw.x -inp inputs/graphene_scf.in > outputs/graphene_scf.out
 
