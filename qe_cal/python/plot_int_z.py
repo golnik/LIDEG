@@ -12,7 +12,7 @@ n = 5
 m = 6
 
 for band in range(n, m):
-    file_path = f'../wfn/rho_band_{band}.dat'
+    file_path = f'../wf/rho_band_{band}.dat'
     
     # Load the data, skipping the header line
     data = np.loadtxt(file_path, skiprows=1)

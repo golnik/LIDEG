@@ -17,24 +17,24 @@ find_package(OpenMP REQUIRED)
 
 # Set source files
 set(SOURCES_DENSITY density.cpp)
-set(SOURCES_DENSITY_REDUCED density_reduced.cpp)
+set(SOURCES_F_S_NM F_S_nm_re.cpp)
 
 # Add the executable for extract.cpp
 add_executable(density ${SOURCES_DENSITY})
 
 # Add the executable for extract_pare.cpp
-add_executable(density_reduced ${SOURCES_DENSITY_REDUCED})
+add_executable(F_S_nm_re ${SOURCES_F_S_NM})
 
 # Link OpenMP to all executables and link stdc++fs for filesystem support
 target_link_libraries(density OpenMP::OpenMP_CXX stdc++fs)
-target_link_libraries(density_reduced OpenMP::OpenMP_CXX stdc++fs)
+target_link_libraries(F_S_nm_re OpenMP::OpenMP_CXX stdc++fs)
 
 # Set runtime output directory for all executables
 set_target_properties(density PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
 )
 
-set_target_properties(density_reduced PROPERTIES
+set_target_properties(F_S_nm_re PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
 )
 
