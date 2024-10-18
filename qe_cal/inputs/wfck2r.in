@@ -1,0 +1,9 @@
+&inputpp
+   prefix = 'graphene',
+   outdir = './tmp',
+   first_k = 1,               ! First k-point to be processed (optional)
+   last_k = 33,               ! Last k-point to be processed (optional)
+   first_band = 1,            ! First band to be processed (optional)
+   last_band = 8,             ! Last band to be processed (optional)
+   loctave = .true.          ! Set to true to create a file readable by Octave
+/
