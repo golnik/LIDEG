@@ -3,7 +3,7 @@
 graphene_prog_path="../graphene"
 
 #input file
-input=input.ini
+input=./inputs/dynamics_input.ini
 
 #extract number of steps
 Nt=`cat $input | grep "Nt" | awk '{print $NF}'`
