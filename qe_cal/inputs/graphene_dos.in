@@ -1,5 +1,0 @@
-&DOS
-  prefix = 'graphene',
-  outdir = '/tmp/mingrui_qe_cal_tmp',
-  fildos = 'outputs/graphene_dos.dat'
-/

@@ -1,0 +1,5 @@
+&DOS
+  prefix = 'graphene',
+  outdir = '/xdisk/ngolubev/mingruiyuan/QE_diffr/tmp/',
+  fildos = '/xdisk/ngolubev/mingruiyuan/QE_diffr/outputs/graphene_dos.dat'
+/
