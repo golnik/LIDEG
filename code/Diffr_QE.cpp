@@ -353,21 +353,21 @@ int main(int argc, char **argv)
                             if (std::regex_search(line, matches, sum_pattern))
                             {
                                 // Extract band indices and the real and imaginary parts
-                                int m = std::stoi(matches[2]) - 1; // Convert band index to 0-based
-                                int n = std::stoi(matches[1]) - 1; // Convert band index to 0-based
+                                int band_m = std::stoi(matches[2]) - 1; // Convert band index to 0-based
+                                int band_n = std::stoi(matches[1]) - 1; // Convert band index to 0-based
 
                                 // Check if m and n are within bounds
-                                if (m >= 0 && m < 8 && n >= 0 && n < 8)
+                                if (band_m >= 0 && band_m < 8 && band_n >= 0 && band_n < 8)
                                 {
                                     double real_part = std::stod(matches[3]);
                                     double imag_part = std::stod(matches[4]);
 
                                     // Store the complex number in the F_S array
-                                    F_S[m][n] = std::complex<double>(real_part, imag_part);
+                                    F_S[band_m][band_n] = std::complex<double>(real_part, imag_part);
                                 }
                                 else
                                 {
-                                    std::cerr << "Band index out of bounds: m = " << m + 1 << ", n = " << n + 1 << std::endl;
+                                    std::cerr << "Band index out of bounds: m = " << band_m + 1 << ", n = " << band_n + 1 << std::endl;
                                 }
                             }
                         }
