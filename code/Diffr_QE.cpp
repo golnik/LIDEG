@@ -309,14 +309,9 @@ int main(int argc, char **argv)
                     auto m = spot[0];
                     auto n = spot[1];
 
-                    auto func = [&dens_data,
-                                 &coh_re_data, &coh_im_data, &params,
-                                 m, n, nspots, nzones, &zones](const size_t &ikx, const size_t &iky)
+                    auto func = [&dens_data, &coh_re_data, &coh_im_data, &params, m, n, nspots, nzones, &zones](const size_t &ikx, const size_t &iky)
                     {
-                        // std::complex<double> res_k0 = 0.;
-
                         std::vector<std::complex<double>> res_k(3, 0.);
-
                         std::complex<double> F_S[8][8];
 
                         // Initialize all elements to zero
@@ -324,65 +319,58 @@ int main(int argc, char **argv)
                         {
                             for (int j = 0; j < 8; ++j)
                             {
-                                F_S[i][j] = std::complex<double>(0.0, 0.0); // Set each element to 0 + 0i
+                                F_S[i][j] = std::complex<double>(0.0, 0.0);
                             }
                         }
 
-                        //////////////////////////////////////////////////////////////
-
-                        // read data
-
-                        //////////////////////////////////////////////////////////////
-
+                        // Construct the file path and open the file
                         std::string file_path = "/xdisk/ngolubev/mingruiyuan/QE_diffr/transition_re/" + std::to_string(ikx * params.Nkx + iky + 1) + "_rearrange.dat";
                         std::ifstream infile(file_path);
 
                         if (!infile.is_open())
                         {
-                            // std::cerr << "File " << file_path << " not found!" << std::endl;
+                            std::cerr << "File " << file_path << " not found!" << std::endl;
                         }
 
-                        std::string line;
-                        std::regex sum_pattern(R"(band f = (\d+), band m = (\d+): \((-?[\d\.eE+-]+),(-?[\d\.eE+-]+)\))");
+                        // Construct the regex pattern based on m and n values
+                        // Construct the pattern string
+                        std::ostringstream pattern_stream;
+                        pattern_stream << "S " << m << "," << n << R"( band f = (\d+), band m = (\d+): \((-?[\d\.eE+-]+),(-?[\d\.eE+-]+)\))";
+                        std::string pattern = pattern_stream.str();
+                        std::regex sum_pattern(pattern);
                         std::smatch matches;
+                        std::string line;
 
                         // Read the file line by line
                         while (std::getline(infile, line))
                         {
-                            // Use regex to match the lines with band information
                             if (std::regex_search(line, matches, sum_pattern))
                             {
-                                // Extract band indices and the real and imaginary parts
+                                int band_f = std::stoi(matches[1]) - 1; // Convert band index to 0-based
                                 int band_m = std::stoi(matches[2]) - 1; // Convert band index to 0-based
-                                int band_n = std::stoi(matches[1]) - 1; // Convert band index to 0-based
 
-                                // Check if m and n are within bounds
-                                if (band_m >= 0 && band_m < 8 && band_n >= 0 && band_n < 8)
+                                // Ensure band indices are within bounds
+                                if (band_f >= 0 && band_f < 8 && band_m >= 0 && band_m < 8)
                                 {
                                     double real_part = std::stod(matches[3]);
                                     double imag_part = std::stod(matches[4]);
 
-                                    // Store the complex number in the F_S array
-                                    F_S[band_m][band_n] = std::complex<double>(real_part, imag_part);
+                                    // Store the complex number in F_S
+                                    F_S[band_f][band_m] = std::complex<double>(real_part, imag_part);
                                 }
                                 else
                                 {
-                                    std::cerr << "Band index out of bounds: m = " << band_m + 1 << ", n = " << band_n + 1 << std::endl;
+                                    std::cerr << "Band index out of bounds: band f = " << band_f + 1 << ", band m = " << band_m + 1 << std::endl;
                                 }
                             }
                         }
 
                         infile.close();
 
-                        //////////////////////////////////////////////////////////////
-
-                        // cal
-
-                        //////////////////////////////////////////////////////////////
-
+                        // Continue with calculations as before
                         for (size_t mst = 3; mst < 5; mst++)
                         {
-                            for (size_t fst = 3; fst < 8; fst++)
+                            for (size_t fst = 3; fst < 5; fst++)
                             {
                                 for (size_t nst = 3; nst < 5; nst++)
                                 {
@@ -392,32 +380,26 @@ int main(int argc, char **argv)
                                     rho[0][1] = coh_re_data[0](ikx, iky) + I * coh_im_data[0](ikx, iky);
                                     rho[1][0] = coh_re_data[0](ikx, iky) - I * coh_im_data[0](ikx, iky);
 
-                                    //   time slot
-
-                                    // we first integrate i z coordinate
-
                                     if (mst == nst) // intra band
                                     {
                                         if (ikx == 0 && iky == 0)
                                         {
-                                            std::cout << F_S[0][0] << '\t' << mst << '\t' << fst << '\t' << nst << std::endl;
+                                            std::cout << std::conj(F_S[fst][mst]) << '\t' << F_S[fst][nst] << '\t' << fst << '\t' << mst << '\t' << nst << std::endl;
                                         }
-                                        res_k[0] = res_k[0] + rho[mst - 3][nst - 3] * std::conj(F_S[fst][mst]) * F_S[fst][nst];
+                                        res_k[0] += rho[mst - 3][nst - 3] * std::conj(F_S[fst][mst]) * F_S[fst][nst];
                                     }
 
                                     if (mst != nst) // inter band
                                     {
-                                        res_k[1] = res_k[1] + rho[mst - 3][nst - 3] * std::conj(F_S[fst][mst]) * F_S[fst][nst];
+                                        res_k[1] += rho[mst - 3][nst - 3] * std::conj(F_S[fst][mst]) * F_S[fst][nst];
                                     }
 
-                                    // total
-                                    res_k[2] = res_k[2] + rho[mst - 3][nst - 3] * std::conj(F_S[fst][mst]) * F_S[fst][nst];
+                                    res_k[2] += rho[mst - 3][nst - 3] * std::conj(F_S[fst][mst]) * F_S[fst][nst];
                                 }
                             }
                         }
 
                         vector<double> res(3, 0.);
-
                         for (size_t i = 0; i < res_k.size(); i++)
                         {
                             res[i] = std::real(res_k[i]);
