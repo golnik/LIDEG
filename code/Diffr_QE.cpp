@@ -382,7 +382,7 @@ int main(int argc, char **argv)
 
                         for (size_t mst = 3; mst < 5; mst++)
                         {
-                            for (size_t fst = 3; fst < 9; fst++)
+                            for (size_t fst = 3; fst < 8; fst++)
                             {
                                 for (size_t nst = 3; nst < 5; nst++)
                                 {
@@ -400,7 +400,7 @@ int main(int argc, char **argv)
                                     {
                                         if (ikx == 0 && iky == 0)
                                         {
-                                            std::cout << F_S[fst][mst] << '\t' << mst << '\t' << fst << '\t' << nst << std::endl;
+                                            std::cout << F_S[0][0] << '\t' << mst << '\t' << fst << '\t' << nst << std::endl;
                                         }
                                         res_k[0] = res_k[0] + rho[mst - 3][nst - 3] * std::conj(F_S[fst][mst]) * F_S[fst][nst];
                                     }
