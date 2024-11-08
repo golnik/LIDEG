@@ -1,0 +1,6 @@
+&BANDS
+  prefix  = 'graphene'
+  outdir = '/xdisk/ngolubev/mingruiyuan/QE_diffr/tmp/',
+  filband = '/xdisk/ngolubev/mingruiyuan/QE_diffr/outputs/graphene_bands.dat',
+  lsym = .true.,
+/
