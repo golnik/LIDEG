@@ -1,7 +1,7 @@
 &CONTROL
   calculation = 'bands',
   prefix = 'graphene',
-  outdir = '/xdisk/ngolubev/mingruiyuan/QE_diffr/tmp/',
+  outdir = './tmp/',
   pseudo_dir = '/xdisk/ngolubev/mingruiyuan/pseudo/',
   ! tstress = .true.,
   ! tprnfor = .true.,
@@ -46,4 +46,4 @@ ATOMIC_POSITIONS {crystal}
 !   3 3 1   0 0 0
 
 K_POINTS {crystal_b}
-4225
+16641

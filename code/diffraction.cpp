@@ -79,7 +79,7 @@ int main(int argc, char **argv)
 
         BZ_t BZt{{1, 0}, {-1, 0}};
 
-        std::vector<BZ_t> zones{BZt};
+        std::vector<BZ_t> zones{BZ1};
 
         size_t nzones = zones.size();
         size_t nspots = 0;

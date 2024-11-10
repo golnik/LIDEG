@@ -69,6 +69,7 @@ struct Parameters{
     double T;
 
     std::string outdir;
+    std::string QE_path;
     std::string kgfile_fname;
     std::string rgfile_fname;
     std::string tfile_fname;
@@ -345,6 +346,8 @@ public:
 
         //parse output
         _params.outdir=ini.get("output").get("outdir");
+
+        _params.QE_path=ini.get("output").get("QE_path");
 
         fs::path kgfile_path(_params.outdir);
         _params.kgfile_fname=(kgfile_path/=ini.get("output").get("kgfile")).c_str();

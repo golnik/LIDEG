@@ -48,7 +48,7 @@ int main(int argc, char **argv)
 
         BZ_t BZt{{1, 0}, {-1, 0}};
 
-        std::vector<BZ_t> zones{BZt};
+        std::vector<BZ_t> zones{BZ1};
 
         size_t nzones = zones.size();
         size_t nspots = 0;
@@ -129,9 +129,10 @@ int main(int argc, char **argv)
         for (size_t ik = 1; ik < Nk + 1; ik++)
         {
             /* code */
+            std::string QE_path=params.QE_path;
 
             // Construct the output file name based on the k-point
-            std::string filename = "/xdisk/ngolubev/mingruiyuan/QE_diffr/transition_re/" + std::to_string(ik) + "_rearrange.dat";
+            std::string filename = QE_path + "transition_re/" + std::to_string(ik) + "_rearrange.dat";
             std::ofstream outfile(filename, std::ios::out); // Open the output file
             if (!outfile.is_open())
             {
@@ -140,6 +141,7 @@ int main(int argc, char **argv)
 
             int t_indx = 0;
             size_t ispot = 0;
+
             for (size_t izone = 0; izone < nzones; izone++)
             {
                 for (auto spot : zones[izone])
@@ -161,7 +163,7 @@ int main(int argc, char **argv)
                             // Read wavefunction data for mst
                             /////////////////////////////////
 
-                            std::string file_name_mst = "/xdisk/ngolubev/mingruiyuan/QE_diffr/wfc/wfc_" + std::to_string(mst) + "_" + std::to_string(ik) + ".dat";
+                            std::string file_name_mst = QE_path + "wfc/wfc_" + std::to_string(mst) + "_" + std::to_string(ik) + ".dat";
                             std::ifstream file_mst(file_name_mst);
                             if (!file_mst.is_open())
                             {
@@ -189,7 +191,7 @@ int main(int argc, char **argv)
                             /////////////////////////////////
                             // Read wavefunction data for fst
                             /////////////////////////////////
-                            std::string file_name_fst = "/xdisk/ngolubev/mingruiyuan/QE_diffr/wfc/wfc_" + std::to_string(fst) + "_" + std::to_string(ik) + ".dat";
+                            std::string file_name_fst = QE_path + "wfc/wfc_" + std::to_string(fst) + "_" + std::to_string(ik) + ".dat";
                             std::ifstream file_fst(file_name_fst);
                             if (!file_fst.is_open())
                             {

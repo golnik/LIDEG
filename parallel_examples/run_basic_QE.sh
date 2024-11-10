@@ -3,7 +3,7 @@
 #SBATCH -J graphene                # Job name
 #SBATCH --nodes=1                  # Number of nodes
 #SBATCH --ntasks-per-node=1        # Number of tasks (CPUs) per node
-#SBATCH --cpus-per-task=10          # Number of CPUs per task
+#SBATCH --cpus-per-task=50          # Number of CPUs per task
 #SBATCH --mem-per-cpu=5G           # Memory per CPU
 #SBATCH --time=20:00:00             # Time limit (hh:mm:ss)
 #SBATCH --account=graphene         # Account name
@@ -32,16 +32,27 @@ ORIGINAL_PATH=$(pwd)
 ######################################################
 
 # Define the target path
-TARGET_PATH="/xdisk/ngolubev/mingruiyuan/QE_diffr_time"
+# TARGET_PATH="/xdisk/ngolubev/mingruiyuan/QE_diffr_time"
+
+# cd "$TARGET_PATH"
+
+TMP_DIR="/tmp/$SLURM_JOB_ID"
+mkdir -p $TMP_DIR
+echo "$TMP_DIR"
+
+cp -r ./inputs "$TMP_DIR"
+# cp -r ./field "$target_dir"
+# cp run_kspace.sh "$target_dir"
+# cp run_basic_QE.sh "$TMP_DIR"
 
 # Check if the target path exists, if not, create it
-if [ ! -d "$TARGET_PATH" ]; then
-    echo "Target path does not exist. Creating: $TARGET_PATH"
-    mkdir -p "$TARGET_PATH"
+if [ ! -d "$TMP_DIR" ]; then
+    echo "Target path does not exist. Creating: $TMP_DIR"
+    mkdir -p "$TMP_DIR"
 fi
 
 # Change to the target directory
-cd "$TARGET_PATH"
+cd "$TMP_DIR"
 
 # Clean up old directories and create necessary ones
 mkdir ./wfc  ./outputs ./transition_re
@@ -68,14 +79,14 @@ if [ -z "$np" ] || [ "$np" -le 0 ]; then
 fi
 
 # Run Quantum Espresso using mpirun
-mpirun -np $np pw.x -inp "$ORIGINAL_PATH/inputs/graphene_scf.in" > outputs/graphene_scf.out
+mpirun -np $np pw.x -inp "./inputs/graphene_scf.in" > outputs/graphene_scf.out
 
 # Run additional Quantum Espresso tasks as needed
-mpirun -np $np dos.x -inp "$ORIGINAL_PATH/inputs/graphene_dos.in" > outputs/graphene_dos.out
-mpirun -np $np pw.x -inp "$ORIGINAL_PATH/inputs/graphene_bands.in" > outputs/graphene_bands.out
-mpirun -np $np bands.x -inp "$ORIGINAL_PATH/inputs/graphene_bands_pp.in" > outputs/graphene_bands_pp.out
+mpirun -np $np dos.x -inp "./inputs/graphene_dos.in" > outputs/graphene_dos.out
+mpirun -np $np pw.x -inp "./inputs/graphene_bands.in" > outputs/graphene_bands.out
+mpirun -np $np bands.x -inp "./inputs/graphene_bands_pp.in" > outputs/graphene_bands_pp.out
 
-mpirun -np $np wfck2r.x < "$ORIGINAL_PATH/inputs/wfck2r.in" > outputs/wfck2r.out
+mpirun -np $np wfck2r.x < "./inputs/wfck2r.in" > outputs/wfck2r.out
 
 ###########################
 
@@ -93,6 +104,6 @@ input=./inputs/dynamics_input.ini
 $graphene_prog_path/build/Extract_QE_WF.exe $input  # get wavefunction from wfck2r.oct file psi_n(k,r)
 $graphene_prog_path/build/Transition.exe $input     # calculate the Fourier transform of transition denisty for certain S
 
-rm wfc* -rf
+cp -r ./transition_re "$ORIGINAL_PATH"
 
 exit 0

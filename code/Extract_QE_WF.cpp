@@ -10,11 +10,27 @@
 #include <queue>
 #include <condition_variable>
 
+#include "mini/ini.h"
+
+#include "external_field.hpp"
+#include "graphenemodel.hpp"
+#include "model1/graphene.hpp"
+#include "parser.hpp"
+#include "utils/grid.hpp"
+#include "utils/utils.hpp"
+// #include "model1/WFs.hpp"
+#include "Nlayer/nlayer.hpp"
+#include "model2/graphene2.hpp"
+
 namespace fs = std::filesystem;
 
 // Define file paths
-const std::string filepath = "/xdisk/ngolubev/mingruiyuan/QE_diffr/wfck2r.oct";
-const std::string output_dir = "/xdisk/ngolubev/mingruiyuan/QE_diffr/wfc";
+Parameters params;
+Parser parser(params);
+
+const std::string QE_path=params.QE_path;
+const std::string filepath = QE_path + "wfck2r.oct";
+const std::string output_dir = QE_path + "wfc";
 
 std::mutex io_mutex; // Mutex for safe I/O operations
 std::mutex queue_mutex; // Mutex for task queue

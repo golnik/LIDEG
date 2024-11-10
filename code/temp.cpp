@@ -77,9 +77,9 @@ int main(int argc, char **argv)
         BZ_t BZ2{{2, 1}, {1, 2}, {-1, 1}, {-2, -1}, {-1, -2}, {1, -1}};
         BZ_t BZ3{{2, 0}, {2, 2}, {0, 2}, {-2, 0}, {-2, -2}, {0, -2}};
 
-        BZ_t BZt{{1, 0}, {-1, 0}};
+        BZ_t BZt{{1, 0}, {1, 1}};
 
-        std::vector<BZ_t> zones{BZ1};
+        std::vector<BZ_t> zones{BZt};
 
         size_t nzones = zones.size();
         size_t nspots = 0;
@@ -297,7 +297,7 @@ int main(int argc, char **argv)
                 auto m = spot[0];
                 auto n = spot[1];
 
-                auto func = [&dens_data, &coh_re_data, &coh_im_data, &params, m, n, nspots, nzones, &zones, tstep](const size_t &ikx, const size_t &iky)
+                auto func = [&dens_data, &coh_re_data, &coh_im_data, &params, m, n, nspots, nzones, &zones](const size_t &ikx, const size_t &iky)
                 {
                     std::vector<std::complex<double>> res_k(3, 0.);
                     std::complex<double> F_S[8][8];
@@ -312,8 +312,7 @@ int main(int argc, char **argv)
                     }
 
                     // Construct the file path and open the file
-                    std::string file_path = "/xdisk/ngolubev/mingruiyuan/QE_diffr_time/QE_diffr_" + std::to_string(tstep) + "/transition_re/" + std::to_string(ikx * params.Nkx + iky + 1) + "_rearrange.dat";
-
+                    std::string file_path = "/xdisk/ngolubev/mingruiyuan/QE_diffr/transition_re/" + std::to_string(ikx * params.Nkx + iky + 1) + "_rearrange.dat";
                     std::ifstream infile(file_path);
 
                     if (!infile.is_open())
@@ -370,15 +369,15 @@ int main(int argc, char **argv)
 
                                 if (mst == nst) // intra band
                                 {
-                                    res_k[0] += rho[nst - 3][mst - 3] * std::conj(F_S[fst][mst]) * F_S[fst][nst];
+                                    res_k[0] += rho[mst - 3][nst - 3] * std::conj(F_S[fst][mst]) * F_S[fst][nst];
                                 }
 
                                 if (mst != nst) // inter band
                                 {
-                                    res_k[1] += rho[nst - 3][mst - 3] * std::conj(F_S[fst][mst]) * F_S[fst][nst];
+                                    res_k[1] += rho[mst - 3][nst - 3] * std::conj(F_S[fst][mst]) * F_S[fst][nst];
                                 }
 
-                                res_k[2] += rho[nst - 3][mst - 3] * std::conj(F_S[fst][mst]) * F_S[fst][nst];
+                                res_k[2] += rho[mst - 3][nst - 3] * std::conj(F_S[fst][mst]) * F_S[fst][nst];
                             }
                         }
                     }
