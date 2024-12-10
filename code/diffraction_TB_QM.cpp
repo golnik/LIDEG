@@ -449,16 +449,16 @@ int main(int argc, char **argv)
 
                                 if (mst == nst) //intra band
                                 {
-                                    res_k[0] = res_k[0] + rho[mst][nst] * std::conj(F_S_fm) * F_S_fn;
+                                    res_k[0] = res_k[0] + rho[nst][mst] * std::conj(F_S_fm) * F_S_fn;
                                 }
 
                                 if (mst != nst) //inter band
                                 {
-                                    res_k[1] = res_k[1] + rho[mst][nst] * std::conj(F_S_fm) * F_S_fn;
+                                    res_k[1] = res_k[1] + rho[nst][mst] * std::conj(F_S_fm) * F_S_fn;
                                 }
 
                                 // total
-                                res_k[2] = res_k[2] + rho[mst][nst] * std::conj(F_S_fm) * F_S_fn;
+                                res_k[2] = res_k[2] + rho[nst][mst] * std::conj(F_S_fm) * F_S_fn;
                             }
                         }
                     }

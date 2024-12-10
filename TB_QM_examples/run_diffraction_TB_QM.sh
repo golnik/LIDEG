@@ -34,7 +34,7 @@ Nt=`cat $input | grep "Nt" | awk '{print $NF}'`
 MPI_tasks_list_fname="$PWD/MPI_tasks_list"
 echo "$graphene_prog_path/build/data_writer.exe -f $PWD/$input --rspace" > $MPI_tasks_list_fname
 for (( i=1; i<=$Nt; i++ )); do
-    echo "$graphene_prog_path/build/diffraction.exe $PWD/$input $i" >> $MPI_tasks_list_fname
+    echo "$graphene_prog_path/build/diffraction_TB_QM.exe $PWD/$input $i" >> $MPI_tasks_list_fname
 done
 
 MPI_script="$graphene_prog_path/mpi_manager/manager.py"
