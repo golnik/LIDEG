@@ -66,8 +66,10 @@ struct Parameters{
     std::vector<double> s;
     double Z;
     double Td;
+    double T;
 
     std::string outdir;
+    std::string QE_path;
     std::string kgfile_fname;
     std::string rgfile_fname;
     std::string tfile_fname;
@@ -158,7 +160,8 @@ struct Parameters{
         out<<"\n";
 
         out<<"\torbital charge: "<<Z<<std::endl;
-        out<<"\tcoherence time: "<<Td*au2fs<<", fs\n";
+        out<<"\tcoherence time  : "<<Td*au2fs<<", fs\n";
+        out<<"\ttemperature     : "<<T<<", K\n";
 
         return;
     }
@@ -337,8 +340,14 @@ public:
         std::string Td_str=ini.get("system").get("Td");
         _params.Td=std::stod(Td_str)/au2fs;
 
+        std::string T_str=ini.get("system").get("T");
+        _params.T=std::stod(T_str);       
+
+
         //parse output
         _params.outdir=ini.get("output").get("outdir");
+
+        _params.QE_path=ini.get("output").get("QE_path");
 
         fs::path kgfile_path(_params.outdir);
         _params.kgfile_fname=(kgfile_path/=ini.get("output").get("kgfile")).c_str();
@@ -369,6 +378,7 @@ public:
 
         fs::path GKMG_path(_params.outdir);
         _params.GKMG_fname=(GKMG_path/=ini.get("output").get("GKMGfile")).c_str();
+
 
         fs::path diffr_path(_params.outdir);
         auto diffr_fname=ini.get("output").get("diffrfile");
