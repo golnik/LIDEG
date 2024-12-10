@@ -36,8 +36,8 @@ int main(int argc, char **argv)
         parser.analyze(fname);
 
         // params.print(std::cout);
-
-        // std::cout << "Ax: " << Ax << " Ay: " << Ay << std::endl;
+        // std::cout << params.QE_path << std::endl;
+        // std::cout << "TEST: "  << std::endl;
 
         /// prepare Black spots
         typedef std::vector<std::vector<double>> BZ_t;

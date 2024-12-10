@@ -27,14 +27,11 @@ ORIGINAL_PATH=$(pwd)
 
 ######################################################
 
-############  Output path
+############  Calculation/tmp path
 
 ######################################################
 
-# Define the target path
-# TARGET_PATH="/xdisk/ngolubev/mingruiyuan/QE_diffr_time"
-
-# cd "$TARGET_PATH"
+# Define the target tmp path
 
 TMP_DIR="/tmp/$SLURM_JOB_ID"
 mkdir -p $TMP_DIR
@@ -45,23 +42,11 @@ cp -r ./inputs "$TMP_DIR"
 # cp run_kspace.sh "$target_dir"
 # cp run_basic_QE.sh "$TMP_DIR"
 
-# Check if the target path exists, if not, create it
-if [ ! -d "$TMP_DIR" ]; then
-    echo "Target path does not exist. Creating: $TMP_DIR"
-    mkdir -p "$TMP_DIR"
-fi
-
 # Change to the target directory
 cd "$TMP_DIR"
 
-# Clean up old directories and create necessary ones
+# Create necessary folders
 mkdir ./wfc  ./outputs ./transition_re
-
-# echo "Cleanup and setup completed at $TARGET_PATH."
-# # Print environment variables for debugging
-# echo "SLURM_NNODES = $SLURM_NNODES"
-# echo "SLURM_NTASKS = $SLURM_NTASKS"
-# echo "SLURM_NTASKS_PER_NODE = $SLURM_NTASKS_PER_NODE"
 
 ######################################################
 
@@ -81,14 +66,19 @@ fi
 # Run Quantum Espresso using mpirun
 mpirun -np $np pw.x -inp "./inputs/graphene_scf.in" > outputs/graphene_scf.out
 
-# Run additional Quantum Espresso tasks as needed
 mpirun -np $np dos.x -inp "./inputs/graphene_dos.in" > outputs/graphene_dos.out
+
 mpirun -np $np pw.x -inp "./inputs/graphene_bands.in" > outputs/graphene_bands.out
+
 mpirun -np $np bands.x -inp "./inputs/graphene_bands_pp.in" > outputs/graphene_bands_pp.out
 
 mpirun -np $np wfck2r.x < "./inputs/wfck2r.in" > outputs/wfck2r.out
 
-###########################
+######################################################
+
+############  Extract wavefunction from wfck2r.oct and calculate transition
+
+######################################################
 
 module purge
 module add intel/2020.4
@@ -96,7 +86,8 @@ module add gnu8/8.3.0
 module add openmpi3/3.1.4
 module add python/3.9/3.9.10
 
-graphene_prog_path="/home/u18/mingruiyuan/LIDEG"
+# Extract&Transition code path
+graphene_prog_path="/home/u18/mingruiyuan/LIDEG_ALL/QE_QM_Diffr"
 
 #input file
 input=./inputs/dynamics_input.ini
@@ -104,6 +95,7 @@ input=./inputs/dynamics_input.ini
 $graphene_prog_path/build/Extract_QE_WF.exe $input  # get wavefunction from wfck2r.oct file psi_n(k,r)
 $graphene_prog_path/build/Transition.exe $input     # calculate the Fourier transform of transition denisty for certain S
 
+# copy the transition back to origional path
 cp -r ./transition_re "$ORIGINAL_PATH"
 
 exit 0

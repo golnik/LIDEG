@@ -5,7 +5,7 @@ t = int(sys.argv[1])
 output_file = sys.argv[2]
 
 # Define the number of points for each column
-num_points = 65
+num_points = 129
 Bx_0 = 1.56068822e+00 
 
 # Generate linearly spaced values between 0 and 1 for the first and second columns

@@ -1,14 +1,14 @@
 #include <complex>
+#include <condition_variable>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <sstream>
-#include <string>
-#include <vector>
-#include <thread>
 #include <mutex>
 #include <queue>
-#include <condition_variable>
+#include <sstream>
+#include <string>
+#include <thread>
+#include <vector>
 
 #include "mini/ini.h"
 
@@ -24,16 +24,12 @@
 
 namespace fs = std::filesystem;
 
-// Define file paths
-Parameters params;
-Parser parser(params);
+std::string QE_path = "";
+std::string filepath = "";
+std::string output_dir = "";
 
-const std::string QE_path=params.QE_path;
-const std::string filepath = QE_path + "wfck2r.oct";
-const std::string output_dir = QE_path + "wfc";
-
-std::mutex io_mutex; // Mutex for safe I/O operations
-std::mutex queue_mutex; // Mutex for task queue
+std::mutex io_mutex;        // Mutex for safe I/O operations
+std::mutex queue_mutex;     // Mutex for task queue
 std::condition_variable cv; // Condition variable for thread synchronization
 
 // Task queue for saving tasks
@@ -63,7 +59,7 @@ void saveWavefunction(const std::vector<std::complex<double>> &wavefunction, int
         output_file.close();
 
         std::lock_guard<std::mutex> lock(io_mutex);
-        std::cout << "Saved wavefunction n=" << current_n + 1 << " k=" << current_k + 1 
+        std::cout << "Saved wavefunction n=" << current_n + 1 << " k=" << current_k + 1
                   << " to " << filename << " with length " << wavefunction.size() << std::endl;
     }
     else
@@ -78,138 +74,162 @@ void worker()
     while (true)
     {
         std::tuple<std::vector<std::complex<double>>, int, int> task;
-        
+
         // Retrieve a task from the queue
         {
             std::unique_lock<std::mutex> lock(queue_mutex);
-            cv.wait(lock, [] { return !task_queue.empty() || done; });
-            
+            cv.wait(lock, []
+                    { return !task_queue.empty() || done; });
+
             if (done && task_queue.empty())
                 return;
 
             task = std::move(task_queue.front());
             task_queue.pop();
         }
-        
+
         // Process the task
         auto &[wavefunction, current_n, current_k] = task;
         saveWavefunction(wavefunction, current_n, current_k);
     }
 }
 
-int main()
+int main(int argc, char **argv)
 {
-    // Check if the file exists
-    if (!fs::exists(filepath))
+    try
     {
-        std::cerr << "File not found: " << filepath << std::endl;
-        return 1;
-    }
+        std::string fname = argv[1];
 
-    std::ifstream file(filepath);
-    if (!file.is_open())
-    {
-        std::cerr << "Failed to open file: " << filepath << std::endl;
-        return 1;
-    }
+        Parameters params;
+        Parser parser(params);
 
-    bool isReadingUnkr = false;
-    std::vector<int> dims;
-    int nr1x, nr2x, nr3x, nbands, nkpoints, wavefunction_size;
-    int wavefunction_counter = 0;
-    std::string line;
+        parser.analyze(fname);
 
-    // First pass: Read dimensions
-    while (std::getline(file, line))
-    {
-        line = line.substr(0, line.find_last_not_of(" \t\n\r\f\v") + 1);
+        // params.print(std::cout);
 
-        if (line.find("# name: unkr") != std::string::npos)
+        QE_path = params.QE_path;
+        filepath = QE_path + "wfck2r.oct";
+        output_dir = QE_path + "wfc";
+
+        // std::cout << params.outdir << std::endl;
+        // Check if the file exists
+        if (!fs::exists(filepath))
         {
-            isReadingUnkr = true;
-            continue;
+            std::cerr << "File not found: " << filepath << std::endl;
+            return 1;
         }
 
-        if (isReadingUnkr && line.find("ndims:") != std::string::npos)
+        std::ifstream file(filepath);
+        if (!file.is_open())
         {
-            std::getline(file, line);
-            std::istringstream dim_stream(line);
-            int dim;
-            while (dim_stream >> dim)
-            {
-                dims.push_back(dim);
-            }
-            if (dims.size() == 5)
-            {
-                nr1x = dims[0];
-                nr2x = dims[1];
-                nr3x = dims[2];
-                nbands = dims[3];
-                nkpoints = dims[4];
-                wavefunction_size = nr1x * nr2x * nr3x;
-            }
-            break;
+            std::cerr << "Failed to open file: " << filepath << std::endl;
+            return 1;
         }
-    }
-    
-    std::cout << "nr1x: " << nr1x << "\nnr2x: " << nr2x << "\nnr3x: " << nr3x << "\nnbands: " << nbands << "\nnkpoints: " << nkpoints << std::endl;
 
-    fs::create_directories(output_dir);
-    std::vector<std::complex<double>> current_wavefunction;
+        bool isReadingUnkr = false;
+        std::vector<int> dims;
+        int nr1x, nr2x, nr3x, nbands, nkpoints, wavefunction_size;
+        int wavefunction_counter = 0;
+        std::string line;
 
-    // Start a pool of worker threads
-    int num_threads = std::thread::hardware_concurrency();
-    std::vector<std::thread> threads;
-    for (int i = 0; i < num_threads; ++i)
-    {
-        threads.emplace_back(worker);
-    }
-
-    // Second pass: Read and save each wavefunction incrementally
-    while (std::getline(file, line))
-    {
-        line = line.substr(0, line.find_last_not_of(" \t\n\r\f\v") + 1);
-
-        if (isReadingUnkr && line[0] == '(')
+        // First pass: Read dimensions
+        while (std::getline(file, line))
         {
-            current_wavefunction.push_back(parseComplex(line));
+            line = line.substr(0, line.find_last_not_of(" \t\n\r\f\v") + 1);
 
-            if (current_wavefunction.size() == wavefunction_size)
+            if (line.find("# name: unkr") != std::string::npos)
             {
-                int current_k = wavefunction_counter / nbands;
-                int current_n = wavefunction_counter % nbands;
-                wavefunction_counter++;
+                isReadingUnkr = true;
+                continue;
+            }
 
-                // Add the task to the queue
+            if (isReadingUnkr && line.find("ndims:") != std::string::npos)
+            {
+                std::getline(file, line);
+                std::istringstream dim_stream(line);
+                int dim;
+                while (dim_stream >> dim)
                 {
-                    std::lock_guard<std::mutex> lock(queue_mutex);
-                    task_queue.emplace(current_wavefunction, current_n, current_k);
+                    dims.push_back(dim);
                 }
-                cv.notify_one();
-
-                current_wavefunction.clear();
+                if (dims.size() == 5)
+                {
+                    nr1x = dims[0];
+                    nr2x = dims[1];
+                    nr3x = dims[2];
+                    nbands = dims[3];
+                    nkpoints = dims[4];
+                    wavefunction_size = nr1x * nr2x * nr3x;
+                }
+                break;
             }
         }
-    }
 
-    file.close();
+        std::cout << "nr1x: " << nr1x << "\nnr2x: " << nr2x << "\nnr3x: " << nr3x << "\nnbands: " << nbands << "\nnkpoints: " << nkpoints << std::endl;
 
-    // Signal worker threads to stop and join them
-    {
-        std::lock_guard<std::mutex> lock(queue_mutex);
-        done = true;
-    }
-    cv.notify_all();
+        fs::create_directories(output_dir);
+        std::vector<std::complex<double>> current_wavefunction;
 
-    for (auto &t : threads)
-    {
-        if (t.joinable())
+        // Start a pool of worker threads
+        int num_threads = std::thread::hardware_concurrency();
+        std::vector<std::thread> threads;
+        for (int i = 0; i < num_threads; ++i)
         {
-            t.join();
+            threads.emplace_back(worker);
         }
+
+        // Second pass: Read and save each wavefunction incrementally
+        while (std::getline(file, line))
+        {
+            line = line.substr(0, line.find_last_not_of(" \t\n\r\f\v") + 1);
+
+            if (isReadingUnkr && line[0] == '(')
+            {
+                current_wavefunction.push_back(parseComplex(line));
+
+                if (current_wavefunction.size() == wavefunction_size)
+                {
+                    int current_k = wavefunction_counter / nbands;
+                    int current_n = wavefunction_counter % nbands;
+                    wavefunction_counter++;
+
+                    // Add the task to the queue
+                    {
+                        std::lock_guard<std::mutex> lock(queue_mutex);
+                        task_queue.emplace(current_wavefunction, current_n, current_k);
+                    }
+                    cv.notify_one();
+
+                    current_wavefunction.clear();
+                }
+            }
+        }
+
+        file.close();
+
+        // Signal worker threads to stop and join them
+        {
+            std::lock_guard<std::mutex> lock(queue_mutex);
+            done = true;
+        }
+        cv.notify_all();
+
+        for (auto &t : threads)
+        {
+            if (t.joinable())
+            {
+                t.join();
+            }
+        }
+
+        std::cout << "All wavefunctions have been saved." << std::endl;
     }
-
-    std::cout << "All wavefunctions have been saved." << std::endl;
-
+    catch (std::string er)
+    {
+        std::cout << ' ' << er << std::endl;
+        std::cout << " Task not accomplished.\n";
+        return 1;
+    }
+    std::cout << "\n Tasks accomplished.\n";
     return 0;
 }
