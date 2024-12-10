@@ -72,7 +72,7 @@ find_package(OpenMP REQUIRED)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
-set(PROGS "main;analysis;data_writer;rspace;diffraction;Extract_QE_WF;Transition;diffraction_TB_QM")
+set(PROGS "main;analysis;data_writer;rspace;Extract_QE_WF;Transition;diffraction_TB_QM;diffraction_QE_QM;diffraction_TB_SC;diffraction_Yak")
 #set(PROGS "KGMK")
 
 foreach(PROG ${PROGS})
