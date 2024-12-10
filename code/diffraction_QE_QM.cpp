@@ -297,7 +297,7 @@ int main(int argc, char **argv)
                 auto m = spot[0];
                 auto n = spot[1];
 
-                auto func = [&dens_data, &coh_re_data, &coh_im_data, &params, m, n, nspots, nzones, &zones](const size_t &ikx, const size_t &iky)
+                auto func = [&dens_data, &coh_re_data, &coh_im_data, &params, m, n, nspots, nzones, &zones, tstep](const size_t &ikx, const size_t &iky)
                 {
                     std::vector<std::complex<double>> res_k(3, 0.);
                     std::complex<double> F_S[8][8];
@@ -312,7 +312,8 @@ int main(int argc, char **argv)
                     }
 
                     // Construct the file path and open the file
-                    std::string file_path = "/xdisk/ngolubev/mingruiyuan/QE_diffr/transition_re/" + std::to_string(ikx * params.Nkx + iky + 1) + "_rearrange.dat";
+                    std::string file_path = "/xdisk/ngolubev/mingruiyuan/QE_diffr_time/QE_diffr_" + std::to_string(tstep) + "/transition_re/" + std::to_string(ikx * params.Nkx + iky + 1) + "_rearrange.dat";
+
                     std::ifstream infile(file_path);
 
                     if (!infile.is_open())
@@ -357,7 +358,7 @@ int main(int argc, char **argv)
                     // Continue with calculations as before
                     for (size_t mst = 3; mst < 5; mst++)
                     {
-                        for (size_t fst = 3; fst < 5; fst++)
+                        for (size_t fst = 3; fst < 8; fst++)
                         {
                             for (size_t nst = 3; nst < 5; nst++)
                             {
