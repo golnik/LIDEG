@@ -229,30 +229,16 @@ int main(int argc, char** argv){
 
                             double phi=0.;
 
-                            //auto H=O+m*a+n*b;
-                            //double H_r=H[0]*x+H[1]*y;
-                            //std::complex<double> PW=exp(-I*(H_r-phi));
-
-                            //std::complex<double> PW=exp(I*2.*M_PI/params.a*(1./sqrt(3.)*(m+n)*x+(m-n)*y));
+                            std::complex<double> PW=exp(I*2.*M_PI/params.a*(1./sqrt(3.)*(m+n)*x+(m-n)*y));
                             
-                            // G     = m * b1 + n * b2;
-                            // r     = l * a1 + h * a2;
-                            // G * r = 2 * pi * (m * l + n * h)
-                            std::complex<double> PWx = exp(I * 2. * M_PI * m * (double(ix) / (params.Nx - 1)));
-                            std::complex<double> PWy = exp(I * 2. * M_PI * n * (double(iy) / (params.Ny - 1)));
-                            std::complex<double> PW = PWx * PWy / 2.;
-
-                            // Jacbobi det for change the integral variable 
-                            // double Jacboi = 1/2;
-
                             return dens_xy[indx_ixiy] * PW;
                         };
 
                         std::complex<double> res=0.;
                         integrator_xy->trapz(int_xy,res);
 
-                        data[ispot]=std::abs(res);
-                        avdata[izone]+=std::abs(res);
+                        data[ispot]=std::norm(res);
+                        avdata[izone]+=std::norm(res);
 
                         if (it == 0)
                         {
