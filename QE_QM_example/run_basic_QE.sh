@@ -32,7 +32,8 @@ ORIGINAL_PATH=$(pwd)
 ######################################################
 
 # Define the target path
-TARGET_PATH="/xdisk/ngolubev/mingruiyuan/QE_diffr"
+TARGET_PATH="/xdisk/ngolubev/mingruiyuan/QE_diffr"  # Change it to what you want, also change it here code/diffraction_QE_QM.cpp
+                                                    # std::string file_path = "/xdisk/ngolubev/mingruiyuan/QE_diffr_time/
 
 # Check if the target path exists, if not, create it
 if [ ! -d "$TARGET_PATH" ]; then

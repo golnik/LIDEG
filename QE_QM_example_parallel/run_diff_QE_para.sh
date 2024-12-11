@@ -1,10 +1,10 @@
 #!/bin/bash
 
 #SBATCH -J graphene
-#SBATCH --nodes=6
+#SBATCH --nodes=11
 #SBATCH --ntasks-per-node=28
 #SBATCH --cpus-per-task=1
-#SBATCH --ntasks=152
+#SBATCH --ntasks=302
 #SBATCH --mem-per-cpu=4G
 #SBATCH --time=40:00:00
 #SBATCH --account=graphene

@@ -87,7 +87,7 @@ module add openmpi3/3.1.4
 module add python/3.9/3.9.10
 
 # Extract&Transition code path
-graphene_prog_path="/home/u18/mingruiyuan/LIDEG_ALL/QE_QM_Diffr"
+graphene_prog_path="/home/u18/mingruiyuan/LIDEG_ALL/LIDEG"  # Change it to the parent path of current path, msut use the path in hpc!!!!!!!!!!!!!!!!!
 
 #input file
 input=./inputs/dynamics_input.ini
@@ -97,5 +97,6 @@ $graphene_prog_path/build/Transition.exe $input     # calculate the Fourier tran
 
 # copy the transition back to origional path
 cp -r ./transition_re "$ORIGINAL_PATH"
+
 
 exit 0

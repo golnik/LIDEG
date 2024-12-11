@@ -1,6 +1,6 @@
 #!/bin/bash
 
-graphene_prog_path="../graphene"
+graphene_prog_path="../"
 
 #input file
 input=input.ini

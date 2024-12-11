@@ -21,11 +21,10 @@ graphene_prog_path="../"
 #input file
 input=./inputs/dynamics_input.ini
 
-#$graphene_prog_path/build/Extract_QE_WF.exe $input
+$graphene_prog_path/build/Extract_QE_WF.exe $input
 $graphene_prog_path/build/Transition.exe $input
-# $graphene_prog_path/build/Diffr_QE.exe $input
 
-# python3 $graphene_prog_path/python/comb.py -input $input  #-output plot.pdf
+python3 $graphene_prog_path/python/comb.py -input $input  #-output plot.pdf
 
 
 exit 0
