@@ -37,6 +37,7 @@ MPI_script="$graphene_prog_path/mpi_manager/manager.py"
 outdir="$PWD/MPI_out"
 
 #start real space calculations
-mpiexec python3 $MPI_script $MPI_tasks_list_fname $outdir
+mpiexec -n $SLURM_NTASKS python3 $MPI_script $MPI_tasks_list_fname $outdir
 
 exit 0
+
