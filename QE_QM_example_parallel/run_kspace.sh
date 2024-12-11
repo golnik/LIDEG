@@ -18,7 +18,7 @@ module add python/3.9/3.9.10
 
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
-graphene_prog_path="/home/u18/mingruiyuan/LIDEG"
+graphene_prog_path="../"
 
 #input file
 input=./inputs/dynamics_input.ini

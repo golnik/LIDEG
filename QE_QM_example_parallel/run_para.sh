@@ -13,7 +13,8 @@
 # Set the base directory
 
 ORIGINAL_PATH=$(pwd)
-base_dir="/xdisk/ngolubev/mingruiyuan/QE_diffr_time"
+base_dir="/xdisk/ngolubev/mingruiyuan/QE_diffr_time" # Change it to what you want, also change it here code/diffraction_QE_QM.cpp
+                                                     # std::string file_path = "/xdisk/ngolubev/mingruiyuan/QE_diffr_time/
 
 # Loop through t from 0 to 10
 for t in {0..301}; do
