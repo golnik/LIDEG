@@ -21,7 +21,7 @@ export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 graphene_prog_path="../"
 
 #input file
-input=./inputs/dynamics_input.ini
+input=input.ini
 
 #extract number of steps
 Nt=`cat $input | grep "Nt" | awk '{print $NF}'`
