@@ -22,7 +22,7 @@ module add ohpc
 #source /home/u18/mingruiyuan/mpi_test/bin/activate
 #active mpi4py
 
-graphene_prog_path="../"
+graphene_prog_path="../../"
 
 #input file
 input=./inputs/dynamics_input.ini

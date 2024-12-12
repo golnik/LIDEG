@@ -16,7 +16,7 @@ module add gnu8/8.3.0
 module add openmpi3/3.1.4
 module add python/3.9/3.9.10
 
-graphene_prog_path="../"
+graphene_prog_path="../../"
 
 #input file
 input=./inputs/dynamics_input.ini
